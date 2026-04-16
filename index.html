@@ -69,9 +69,13 @@
                         <div id="readonly-indicator" class="hidden readonly-badge"><i class="fa-solid fa-lock mr-1"></i> ดูข้อมูลเท่านั้น (ระบบปิด)</div>
                     </div>
                 </div>
-                <div class="flex gap-2">
-                     <button id="theme-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-700 hidden"><i class="fa-solid fa-palette"></i></button>
+                <div class="flex gap-2 flex-wrap">
+                    <button id="theme-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-700 hidden"><i class="fa-solid fa-palette"></i></button>
+                    <!-- ปุ่มประวัติการใช้งาน (เพิ่มใหม่สำหรับ Admin) -->
+                    <button id="audit-log-btn" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800 hidden"><i class="fa-solid fa-clock-rotate-left mr-1"></i> ประวัติการใช้งาน</button>
                     <button id="users-manage-btn" class="btn bg-blue-100 hover:bg-blue-200 text-blue-800 hidden"><i class="fa-solid fa-users-gear mr-1"></i> ผู้ใช้งาน</button>
+                    <!-- Added Role Management Button -->
+                    <button id="roles-manage-btn" class="btn bg-indigo-100 hover:bg-indigo-200 text-indigo-800 hidden"><i class="fa-solid fa-user-tag mr-1"></i> จัดการตำแหน่ง</button>
                     <button id="logout-button" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket mr-2"></i>ออกจากระบบ</button>
                 </div>
             </div>
@@ -224,10 +228,7 @@
                         <!-- Personnel Section Header -->
                         <div class="flex justify-between items-center mt-8 mb-2 pb-2 border-b border-theme-200">
                              <h3 class="font-bold text-xl text-theme-800 flex items-center"><i class="fa-solid fa-user-pen mr-2"></i> บันทึก/แก้ไขคณะกรรมการ</h3>
-                             <div class="flex gap-2">
-                                <button id="add-role-btn" type="button" class="hidden text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm font-medium"><i class="fas fa-plus mr-1"></i> เพิ่มตำแหน่ง</button>
-                                <button id="manage-roles-btn" type="button" class="hidden text-sm bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors shadow-sm font-medium"><i class="fas fa-cog mr-1"></i> จัดการตำแหน่ง</button>
-                             </div>
+                            <button id="add-role-btn" type="button" class="hidden text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm font-medium"><i class="fas fa-plus mr-1"></i> เพิ่มตำแหน่ง</button>
                         </div>
 
                         <!-- Personnel Data Tabs -->
@@ -267,15 +268,6 @@
     // ==========================================
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycby_6_KgQMpdGZLajHSTBzagfIHEA_F8xeBI_rLeOgmarioBFICf4c6Nup5e7EZKtkxf/exec";
 
-    // [OPTIMIZATION] ฟังก์ชันหน่วงเวลาแก้ปัญหาการพิมพ์กระตุก
-    function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
-    }
-
     async function apiCall(action, payload = {}) {
         payload.action = action;
         try {
@@ -302,9 +294,9 @@
             editFormPage: document.getElementById('edit-form-page'),
             appHeader: document.getElementById('app-header'),
             agencyDisplay: document.getElementById('agency-display'),
-            readonlyIndicator: document.getElementById('readonly-indicator'),
-            editFormReadonlyAlert: document.getElementById('edit-form-readonly-alert'),
-            formActionButtons: document.getElementById('form-action-buttons'),
+            readonlyIndicator: document.getElementById('readonly-indicator'), // New
+            editFormReadonlyAlert: document.getElementById('edit-form-readonly-alert'), // New
+            formActionButtons: document.getElementById('form-action-buttons'), // New
             adminDashboard: document.getElementById('admin-dashboard'),
             adminDashboardContent: document.getElementById('admin-dashboard-content'),
             agencyDashboard: document.getElementById('agency-dashboard'),
@@ -312,9 +304,10 @@
             mainViewTitle: document.getElementById('main-view-title'),
             manageNewsBtn: document.getElementById('manage-news-btn'),
             usersManageBtn: document.getElementById('users-manage-btn'),
+            rolesManageBtn: document.getElementById('roles-manage-btn'), // Added Reference
+            auditLogBtn: document.getElementById('audit-log-btn'), // Added Audit Log
             themeBtn: document.getElementById('theme-btn'),
             addRoleBtn: document.getElementById('add-role-btn'),
-            manageRolesBtn: document.getElementById('manage-roles-btn'),
             viewToggleBtn: document.getElementById('view-toggle-btn'),
             refreshDataBtn: document.getElementById('refresh-data-btn'),
             stationsTableView: document.getElementById('stations-table-view'),
@@ -333,7 +326,7 @@
             muslimFoodDetails: document.getElementById('muslim-food-details'),
 
             currentUser: null,
-            isReadOnly: false,
+            isReadOnly: false, // New State
             personnelTabsConfig: [],
             currentView: 'list',
             systemSettings: {}, 
@@ -346,17 +339,10 @@
             },
             currentStationsData: [],
 
-            // [OPTIMIZATION] ผูกฟังก์ชันหน่วงเวลากับ class instance
-            debouncedUpdateSummary: null,
-
             async init() {
                 if (GAS_API_URL.includes("เปลี่ยนตรงนี้ให้เป็นของคุณ")) {
                     Swal.fire('ข้อผิดพลาด', 'กรุณาใส่ URL ของ API', 'error'); return;
                 }
-                
-                // Initialize debounced function
-                this.debouncedUpdateSummary = debounce(() => this.updatePersonnelSummary(), 300);
-
                 this.setupEventListeners();
                 this.adjustTabContainer();
                 if(this.themeBtn) {
@@ -404,9 +390,12 @@
                 this.viewToggleBtn.addEventListener('click', () => this.toggleView());
                 this.refreshDataBtn.addEventListener('click', () => { this.loadDashboardData(); }); 
                 this.usersManageBtn.addEventListener('click', () => this.showUserManagement());
+                // Added Event Listener for Roles Manage
+                if (this.rolesManageBtn) this.rolesManageBtn.addEventListener('click', () => this.showRoleManagement());
+                // Event Listener for Audit Log
+                if (this.auditLogBtn) this.auditLogBtn.addEventListener('click', () => this.showAuditLogs());
                 if (this.themeBtn) this.themeBtn.addEventListener('click', () => this.showSystemSettings());
                 this.addRoleBtn.addEventListener('click', () => this.handleAddNewRole());
-                this.manageRolesBtn.addEventListener('click', () => this.showRoleManagementModal());
                 
                 const pdpaCheckbox = document.getElementById('pdpa-checkbox');
                 if (pdpaCheckbox) pdpaCheckbox.addEventListener('change', () => this.toggleLoginButtonState());
@@ -505,6 +494,7 @@
                                 this.showSuccess(res.message);
                                 this.systemSettings.showMuslimFood = result.value.showMuslimFood;
                                 this.systemSettings.calcMode = result.value.calcMode;
+                                // Refresh dashboard data to reflect calculation change immediately
                                 if(this.currentUser) this.loadDashboardData();
                             }).catch(e => this.showError(e.message));
                         }
@@ -566,6 +556,111 @@
                 Swal.fire({ title: 'จัดการผู้ใช้งาน', html: tableHtml, width: '800px', showConfirmButton: false, showCloseButton: true });
             },
 
+            // --- ROLE MANAGEMENT FUNCTIONS ---
+            showRoleManagement() {
+                this.showLoading('กำลังโหลดข้อมูลตำแหน่ง...');
+                apiCall('getPersonnelRoles').then(roles => {
+                    Swal.close();
+                    this.renderRoleManagementModal(roles);
+                }).catch(e => this.showError(e.message));
+            },
+
+            renderRoleManagementModal(roles) {
+                let tableHtml = `
+                    <div class="overflow-x-auto max-h-[60vh]">
+                        <table class="w-full text-sm text-left text-gray-500 mb-4">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10">
+                                <tr>
+                                    <th class="px-4 py-3 text-center w-20">ID</th>
+                                    <th class="px-4 py-3">ชื่อตำแหน่ง</th>
+                                    <th class="px-4 py-3 text-center w-32">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                
+                if(roles.length === 0) {
+                    tableHtml += `<tr><td colspan="3" class="text-center py-4">ไม่พบข้อมูลตำแหน่ง</td></tr>`;
+                } else {
+                    roles.forEach(role => {
+                        tableHtml += `
+                            <tr class="bg-white border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 text-center font-mono text-gray-400 text-xs">${role.id}</td>
+                                <td class="px-4 py-3 font-medium text-gray-900">${role.title}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <button onclick="app.handleEditRole('${role.id}', '${role.title}')" class="text-blue-600 hover:text-blue-800 mx-1 p-1" title="แก้ไข"><i class="fas fa-pencil"></i></button>
+                                    <button onclick="app.handleDeleteRole('${role.id}', '${role.title}')" class="text-red-600 hover:text-red-800 mx-1 p-1" title="ลบ"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>`;
+                    });
+                }
+                
+                tableHtml += `</tbody></table></div>
+                    <button onclick="app.handleAddNewRole(true)" class="w-full btn btn-primary-custom py-2 rounded-lg mt-2">
+                        <i class="fas fa-plus mr-2"></i> เพิ่มตำแหน่งใหม่
+                    </button>`;
+                
+                Swal.fire({ 
+                    title: 'จัดการตำแหน่ง', 
+                    html: tableHtml, 
+                    width: '600px', 
+                    showConfirmButton: false, 
+                    showCloseButton: true 
+                });
+            },
+
+            handleEditRole(id, currentTitle) {
+                Swal.fire({
+                    title: 'แก้ไขชื่อตำแหน่ง',
+                    input: 'text',
+                    inputValue: currentTitle,
+                    inputPlaceholder: 'ชื่อตำแหน่งใหม่...',
+                    showCancelButton: true,
+                    confirmButtonText: 'บันทึก',
+                    confirmButtonColor: 'var(--theme-600)',
+                    showLoaderOnConfirm: true,
+                    preConfirm: (val) => {
+                        if (!val) Swal.showValidationMessage('กรุณาระบุชื่อตำแหน่ง');
+                        return val;
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        apiCall('editPersonnelRole', { roleId: id, newTitle: result.value }).then(res => {
+                            if (res.status === 'success') {
+                                this.showSuccess(res.message);
+                                this.showRoleManagement(); // Reload list
+                                this.loadRolesInBackground(); // Refresh background data
+                            } else {
+                                this.showError(res.message);
+                            }
+                        });
+                    }
+                });
+            },
+
+            handleDeleteRole(id, title) {
+                Swal.fire({
+                    title: 'ยืนยันการลบ',
+                    html: `คุณต้องการลบตำแหน่ง <b>"${title}"</b> ใช่หรือไม่?<br><span class="text-sm text-red-500 mt-2 block">*ข้อมูลเก่าที่บันทึกไว้ในฐานข้อมูลจะยังคงอยู่ แต่จะไม่แสดงในหน้าเว็บ</span>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'ลบตำแหน่ง',
+                    showLoaderOnConfirm: true,
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        apiCall('deletePersonnelRole', { roleId: id }).then(res => {
+                            if (res.status === 'success') {
+                                this.showSuccess(res.message);
+                                this.showRoleManagement(); // Reload list
+                                this.loadRolesInBackground(); // Refresh background data
+                            } else {
+                                this.showError(res.message);
+                            }
+                        });
+                    }
+                });
+            },
+
             toggleUserEdit(username, canEdit) { apiCall('toggleUserStatus', { username, canEdit }); },
             toggleTimeOverride(username, ignoreTime) { apiCall('toggleUserTimeOverride', { username, ignoreTime }); },
 
@@ -610,7 +705,7 @@
                 });
             },
 
-            handleAddNewRole() {
+            handleAddNewRole(isFromManager = false) {
                 Swal.fire({
                     title: 'เพิ่มตำแหน่งใหม่', input: 'text', inputPlaceholder: 'ระบุชื่อตำแหน่ง...', showCancelButton: true, confirmButtonText: 'เพิ่ม',
                     preConfirm: (val) => { if (!val) { Swal.showValidationMessage('กรุณาระบุชื่อตำแหน่ง'); } return val; }
@@ -620,89 +715,9 @@
                         apiCall('addNewPersonnelRole', { roleTitle: result.value }).then(response => {
                             if (response.status === 'success') { 
                                 this.showSuccess(response.message); 
-                                this.loadRolesInBackground(); 
+                                this.loadRolesInBackground();
+                                if(isFromManager) this.showRoleManagement(); // Re-open modal if from manager
                             } else { this.showError(response.message); }
-                        });
-                    }
-                });
-            },
-
-            showRoleManagementModal() {
-                this.showLoading('กำลังโหลดรายการตำแหน่ง...');
-                apiCall('getPersonnelRoles').then(roles => {
-                    Swal.close();
-                    if (!roles || roles.length === 0) {
-                        this.showError('ไม่พบข้อมูลตำแหน่ง');
-                        return;
-                    }
-
-                    let tableHtml = `<div class="overflow-x-auto max-h-[60vh]"><table class="w-full text-sm text-left text-gray-500 mb-4"><thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10"><tr><th class="px-4 py-3">รหัสตำแหน่ง</th><th class="px-4 py-3">ชื่อตำแหน่ง</th><th class="px-4 py-3 text-center">จัดการ</th></tr></thead><tbody>`;
-                    
-                    roles.forEach(role => {
-                        tableHtml += `
-                        <tr class="bg-white border-b hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-900">${role.id}</td>
-                            <td class="px-4 py-3 font-medium text-gray-700">${role.title}</td>
-                            <td class="px-4 py-3 text-center">
-                                <button onclick="app.handleDeleteRole('${role.id}', '${role.title}')" class="text-red-600 hover:text-red-800 transition-colors p-2 rounded-full hover:bg-red-50">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
-                        </tr>`;
-                    });
-                    
-                    tableHtml += `</tbody></table></div>`;
-                    tableHtml += `<div class="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm border border-yellow-200"><i class="fas fa-exclamation-triangle mr-2"></i> <b>คำเตือน:</b> การลบตำแหน่ง จะทำให้ข้อมูลกรรมการในตำแหน่งนั้น <b>ถูกลบออกจากทุกหน่วยเลือกตั้ง</b> ทันที</div>`;
-
-                    Swal.fire({
-                        title: 'จัดการตำแหน่ง',
-                        html: tableHtml,
-                        width: '600px',
-                        showConfirmButton: false,
-                        showCloseButton: true
-                    });
-                }).catch(e => this.showError(e.message));
-            },
-
-            handleDeleteRole(roleId, roleTitle) {
-                Swal.fire({
-                    title: `ยืนยันการลบ "${roleTitle}"?`,
-                    html: `คุณแน่ใจหรือไม่ที่จะลบตำแหน่ง <b>${roleTitle}</b>?<br><br><span class="text-red-600 font-bold">ผลกระทบ: ข้อมูลทั้งหมดที่เกี่ยวข้องกับตำแหน่งนี้ในทุกหน่วยเลือกตั้งจะหายไปถาวร!</span>`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'ยืนยันการลบ',
-                    cancelButtonText: 'ยกเลิก'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        Swal.fire({
-                            title: 'พิมพ์ "DELETE" เพื่อยืนยัน',
-                            input: 'text',
-                            inputAttributes: { autocapitalize: 'off' },
-                            showCancelButton: true,
-                            confirmButtonText: 'ลบข้อมูล',
-                            confirmButtonColor: '#d33',
-                            preConfirm: (confirmText) => {
-                                if (confirmText !== 'DELETE') {
-                                    Swal.showValidationMessage('กรุณาพิมพ์คำว่า DELETE ให้ถูกต้อง');
-                                }
-                            }
-                        }).then((doubleConfirm) => {
-                            if (doubleConfirm.isConfirmed) {
-                                this.showLoading('กำลังลบข้อมูล...');
-                                apiCall('deletePersonnelRole', { roleId: roleId }).then(response => {
-                                    if (response.status === 'success') {
-                                        this.showSuccess(response.message);
-                                        this.loadRolesInBackground().then(() => {
-                                            this.generatePersonnelTabs();
-                                            this.showRoleManagementModal();
-                                        });
-                                    } else {
-                                        this.showError(response.message);
-                                    }
-                                }).catch(e => this.showError(e.message));
-                            }
                         });
                     }
                 });
@@ -724,6 +739,7 @@
                 const loggedInAgency = sessionStorage.getItem('loggedInAgency');
                 if (loggedInAgency) {
                     this.currentUser = loggedInAgency;
+                    // Restore readonly state if saved
                     const isRO = sessionStorage.getItem('isReadOnly') === 'true';
                     this.isReadOnly = isRO;
                     this.showMainPage();
@@ -747,6 +763,7 @@
                 this.mainPage.classList.remove('hidden'); this.appHeader.classList.remove('hidden');
                 this.agencyDisplay.textContent = `หน่วยงาน: ${this.currentUser}`;
                 
+                // Read-only UI Logic
                 if (this.isReadOnly) {
                     this.readonlyIndicator.classList.remove('hidden');
                     this.addNewStationBtn.style.display = 'none';
@@ -757,17 +774,77 @@
                 if (this.currentUser === 'Administrator') {
                     this.addNewStationBtn.style.display = 'inline-block'; this.manageNewsBtn.style.display = 'inline-block';
                     this.usersManageBtn.classList.remove('hidden'); this.themeBtn.classList.remove('hidden');
+                    if (this.auditLogBtn) this.auditLogBtn.classList.remove('hidden'); // แสดงปุ่ม Log
+                    
+                    // Show Role Management Button
+                    if (this.rolesManageBtn) this.rolesManageBtn.classList.remove('hidden');
+
                     this.adminDashboard.classList.remove('hidden'); this.agencyDashboard.classList.add('hidden');
                     this.mainViewTitle.textContent = 'รายการหน่วยเลือกตั้งทั้งหมด';
                 } else {
+                    // If ReadOnly, hide Add Button. If not, show it.
                     if (!this.isReadOnly) this.addNewStationBtn.style.display = 'inline-block';
                     this.manageNewsBtn.style.display = 'none';
                     this.usersManageBtn.classList.add('hidden'); this.themeBtn.classList.add('hidden');
+                    if (this.auditLogBtn) this.auditLogBtn.classList.add('hidden'); // ซ่อนปุ่ม Log
+                    
+                    // Hide Role Management Button
+                    if (this.rolesManageBtn) this.rolesManageBtn.classList.add('hidden');
+
                     this.adminDashboard.classList.add('hidden'); this.agencyDashboard.classList.remove('hidden');
                     this.mainViewTitle.textContent = 'รายการหน่วยเลือกตั้งในความรับผิดชอบ';
                 }
                 
                 this.loadDashboardData();
+            },
+
+            // --- AUDIT LOG FUNCTION ---
+            showAuditLogs() {
+                this.showLoading('กำลังโหลดประวัติ...');
+                apiCall('getAuditLogs').then(logs => {
+                    Swal.close();
+                    let tableHtml = `<div class="overflow-x-auto max-h-[60vh]">
+                        <table class="w-full text-sm text-left text-gray-500 mb-4">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10 shadow-sm">
+                                <tr>
+                                    <th class="px-4 py-3 min-w-[140px]">วัน-เวลา</th>
+                                    <th class="px-4 py-3">หน่วยงาน</th>
+                                    <th class="px-4 py-3 min-w-[120px]">การกระทำ</th>
+                                    <th class="px-4 py-3">รายละเอียด</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+                    
+                    if(logs.length === 0) {
+                        tableHtml += `<tr><td colspan="4" class="text-center py-6 text-gray-500">ไม่มีประวัติการใช้งานใน 30 วันที่ผ่านมา</td></tr>`;
+                    } else {
+                        logs.forEach(log => {
+                            let actionColor = 'text-blue-600';
+                            if(log.action.includes('เพิ่ม')) actionColor = 'text-green-600';
+                            if(log.action.includes('ลบ')) actionColor = 'text-red-600';
+                            if(log.action.includes('แก้ไข')) actionColor = 'text-amber-600';
+
+                            tableHtml += `
+                                <tr class="bg-white border-b hover:bg-gray-50">
+                                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">${log.timestamp}</td>
+                                    <td class="px-4 py-3 font-medium text-gray-900">${log.username}</td>
+                                    <td class="px-4 py-3 font-bold ${actionColor}">${log.action}</td>
+                                    <td class="px-4 py-3 text-gray-600">${log.details}</td>
+                                </tr>`;
+                        });
+                    }
+                    
+                    tableHtml += `</tbody></table></div>`;
+                    
+                    Swal.fire({ 
+                        title: '<i class="fa-solid fa-clock-rotate-left mr-2"></i>ประวัติการใช้งาน',
+                        html: tableHtml, 
+                        width: '900px', 
+                        showConfirmButton: false, 
+                        showCloseButton: true,
+                        footer: '<span class="text-sm text-gray-500"><i class="fa-solid fa-info-circle mr-1"></i> ระบบจะเก็บข้อมูลย้อนหลัง 30 วันเท่านั้น</span>'
+                    });
+                }).catch(e => this.showError(e.message));
             },
 
             showLoading(title) { Swal.fire({ title: title, allowOutsideClick: false, didOpen: () => Swal.showLoading() }); },
@@ -803,14 +880,16 @@
                     if(res.status === 'success') {
                         this.currentStationsData = res.stations || [];
                         if (this.currentUser === 'Administrator') {
-                            this.renderAdminDashboard(res.summary || []);
+                            this.renderAdminDashboard(res.summary || [], res.globalStats); // PASS globalStats HERE
                         } else {
                             this.renderAgencyDashboard(res.summary || {totalStations:0, completedStations:0, overallProgress:0}, this.currentUser);
                         }
                         this.updateViewUI();
                     } else {
+                        // Better Error Handling
                         this.stationsTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-500"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><br>โหลดข้อมูลไม่สำเร็จ <button onclick="app.loadDashboardData()" class="text-blue-600 underline ml-1">ลองใหม่</button></td></tr>`;
                         this.stationsGridContainer.innerHTML = `<div class="col-span-full text-center py-10 text-red-500"><i class="fa-solid fa-circle-exclamation text-2xl mb-2"></i><br>โหลดข้อมูลไม่สำเร็จ <button onclick="app.loadDashboardData()" class="text-blue-600 underline ml-1">ลองใหม่</button></div>`;
+                        // Don't show popup error for load failure, just inline UI
                         console.error(res.message);
                     }
                 }).catch(e => {
@@ -819,66 +898,71 @@
                 });
             },
 
-            // [OPTIMIZATION] ใช้ DocumentFragment ลดการเรนเดอร์ย่อย
             renderStationsTable(stations) {
                 if (!stations || stations.length === 0) {
                     this.stationsTableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10">ไม่พบข้อมูลหน่วยเลือกตั้ง</td></tr>`; return;
                 }
-                
-                requestAnimationFrame(() => {
-                    let html = '';
-                    stations.forEach((station, index) => {
-                        const progress = station.progress || 0;
-                        const progressBarColor = progress < 50 ? 'bg-yellow-500' : progress < 100 ? 'bg-blue-500' : 'bg-green-500';
-                        const progressBarHtml = `<div class="flex items-center"><span class="text-sm font-medium w-12 text-right pr-2">${progress}%</span><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${progressBarColor} h-2.5 rounded-full" style="width: ${progress}%"></div></div></div>`;
-                        const mapLink = station.MapLink ? `<a href="${station.MapLink}" target="_blank" class="text-theme-600" title="ดูแผนที่"><i class="fa-solid fa-map-location-dot text-xl"></i></a>` : `<span class="text-gray-300"><i class="fa-solid fa-map-location-dot text-xl"></i></span>`;
+                let html = '';
+                stations.forEach((station, index) => {
+                    const progress = station.progress || 0;
+                    const progressBarColor = progress < 50 ? 'bg-yellow-500' : progress < 100 ? 'bg-blue-500' : 'bg-green-500';
+                    const progressBarHtml = `<div class="flex items-center"><span class="text-sm font-medium w-12 text-right pr-2">${progress}%</span><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${progressBarColor} h-2.5 rounded-full" style="width: ${progress}%"></div></div></div>`;
+                    const mapLink = station.MapLink ? `<a href="${station.MapLink}" target="_blank" class="text-theme-600" title="ดูแผนที่"><i class="fa-solid fa-map-location-dot text-xl"></i></a>` : `<span class="text-gray-300"><i class="fa-solid fa-map-location-dot text-xl"></i></span>`;
 
-                        let actionsHtml = '';
-                        if (this.isReadOnly) {
-                            actionsHtml = `<button class="text-gray-500 hover:text-gray-700 mx-1 font-medium" onclick="app.showEditForm('${station.StationID}')"><i class="fa-solid fa-eye mr-1"></i>ดูข้อมูล</button>`;
-                        } else {
-                            actionsHtml = `<button class="text-blue-800 hover:text-blue-900 mx-1 font-medium" onclick="app.showEditForm('${station.StationID}')"><i class="fa-solid fa-pencil mr-1"></i>แก้ไข</button>${this.currentUser === 'Administrator' ? `<button class="text-red-700 hover:text-red-900 mx-1 font-medium" onclick="app.handleDelete('${station.StationID}')"><i class="fa-solid fa-trash mr-1"></i>ลบ</button>` : ''}`;
-                        }
+                    // Handle Actions based on ReadOnly
+                    let actionsHtml = '';
+                    if (this.isReadOnly) {
+                        actionsHtml = `<button class="text-gray-500 hover:text-gray-700 mx-1 font-medium" onclick="app.showEditForm('${station.StationID}')"><i class="fa-solid fa-eye mr-1"></i>ดูข้อมูล</button>`;
+                    } else {
+                        actionsHtml = `<button class="text-blue-800 hover:text-blue-900 mx-1 font-medium" onclick="app.showEditForm('${station.StationID}')"><i class="fa-solid fa-pencil mr-1"></i>แก้ไข</button>${this.currentUser === 'Administrator' ? `<button class="text-red-700 hover:text-red-900 mx-1 font-medium" onclick="app.handleDelete('${station.StationID}')"><i class="fa-solid fa-trash mr-1"></i>ลบ</button>` : ''}`;
+                    }
 
-                        html += `<tr class="border-b hover:bg-gray-50"><td class="text-center py-3 px-4">${index + 1}</td><td class="text-center py-3 px-4" style="width: 100px">${station.StationNumber}</td><td class="py-3 px-4" style="width: 150px">${station.SubDistrict}</td><td class="py-3 px-4">${station.Location}</td><td class="text-center py-3 px-4">${mapLink}</td><td class="py-3 px-4 align-middle">${progressBarHtml}</td><td class="text-center py-3 px-4">${actionsHtml}</td></tr>`;
-                    });
-                    this.stationsTableBody.innerHTML = html;
+                    html += `<tr class="border-b hover:bg-gray-50"><td class="text-center py-3 px-4">${index + 1}</td><td class="text-center py-3 px-4" style="width: 100px">${station.StationNumber}</td><td class="py-3 px-4" style="width: 150px">${station.SubDistrict}</td><td class="py-3 px-4">${station.Location}</td><td class="text-center py-3 px-4">${mapLink}</td><td class="py-3 px-4 align-middle">${progressBarHtml}</td><td class="text-center py-3 px-4">${actionsHtml}</td></tr>`;
                 });
+                this.stationsTableBody.innerHTML = html;
             },
 
-            // [OPTIMIZATION] ใช้ DocumentFragment ลดการเรนเดอร์ย่อย
             renderStationsCard(stations) {
                  if (!stations || stations.length === 0) { this.stationsGridContainer.innerHTML = `<div class="col-span-full text-center py-10">ไม่พบข้อมูลหน่วยเลือกตั้ง</div>`; return; }
-                
-                 requestAnimationFrame(() => {
-                    let html = '';
-                    stations.forEach((station) => {
-                        const progress = station.progress || 0;
-                        const isComplete = progress === 100;
-                        const cardBgClass = isComplete ? 'bg-theme-100 border-theme-200' : 'bg-white border-gray-100';
-                        const statusColor = isComplete ? 'text-green-600' : progress > 0 ? 'text-blue-600' : 'text-gray-400';
-                        const subDistrictDisplay = station.SubDistrict.startsWith('แขวง') ? station.SubDistrict : `แขวง${station.SubDistrict}`;
-                        const mapBtn = station.MapLink ? `<a href="${station.MapLink}" target="_blank" class="text-theme-500 ml-2"><i class="fa-solid fa-map-location-dot"></i></a>` : '';
+                let html = '';
+                stations.forEach((station) => {
+                    const progress = station.progress || 0;
+                    const isComplete = progress === 100;
+                    const cardBgClass = isComplete ? 'bg-theme-100 border-theme-200' : 'bg-white border-gray-100';
+                    const statusColor = isComplete ? 'text-green-600' : progress > 0 ? 'text-blue-600' : 'text-gray-400';
+                    const subDistrictDisplay = station.SubDistrict.startsWith('แขวง') ? station.SubDistrict : `แขวง${station.SubDistrict}`;
+                    const mapBtn = station.MapLink ? `<a href="${station.MapLink}" target="_blank" class="text-theme-500 ml-2"><i class="fa-solid fa-map-location-dot"></i></a>` : '';
 
-                        let actionsHtml = '';
-                        if (this.isReadOnly) {
-                            actionsHtml = `<button onclick="app.showEditForm('${station.StationID}')" class="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium text-sm transition-colors text-center"><i class="fa-solid fa-eye mr-1"></i> ดูข้อมูล</button>`;
-                        } else {
-                             actionsHtml = `<button onclick="app.showEditForm('${station.StationID}')" class="flex-grow py-2 px-4 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium text-sm transition-colors text-center"><i class="fa-solid fa-pencil mr-1"></i> แก้ไข</button>${this.currentUser === 'Administrator' ? `<button onclick="app.handleDelete('${station.StationID}')" class="flex-none w-10 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center"><i class="fa-solid fa-trash"></i></button>` : ''}`;
-                        }
+                    let actionsHtml = '';
+                    if (this.isReadOnly) {
+                        actionsHtml = `<button onclick="app.showEditForm('${station.StationID}')" class="w-full py-2 px-4 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 font-medium text-sm transition-colors text-center"><i class="fa-solid fa-eye mr-1"></i> ดูข้อมูล</button>`;
+                    } else {
+                         actionsHtml = `<button onclick="app.showEditForm('${station.StationID}')" class="flex-grow py-2 px-4 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium text-sm transition-colors text-center"><i class="fa-solid fa-pencil mr-1"></i> แก้ไข</button>${this.currentUser === 'Administrator' ? `<button onclick="app.handleDelete('${station.StationID}')" class="flex-none w-10 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center"><i class="fa-solid fa-trash"></i></button>` : ''}`;
+                    }
 
-                        html += `<div class="${cardBgClass} rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all border"><div class="p-5"><div class="flex justify-between items-start mb-4"><div><span class="font-bold uppercase tracking-wider text-gray-500">หน่วยเลือกตั้งที่</span><h3 class="text-3xl font-bold text-theme-700">${station.StationNumber}</h3></div><div class="bg-white/80 rounded-full p-2 shadow-sm"><i class="fa-solid fa-building-user text-theme-500 text-xl"></i></div></div><div class="space-y-2 mb-4"><p class="text-sm text-gray-700 font-medium"><i class="fa-solid fa-map-location-dot w-5 text-center mr-1 text-gray-400"></i> ${subDistrictDisplay}</p><p class="text-sm text-gray-600 truncate"><i class="fa-solid fa-location-dot w-5 text-center mr-1 text-gray-400"></i> ${station.Location} ${mapBtn}</p></div><div class="mb-4"><div class="flex justify-between text-xs mb-1"><span class="font-semibold text-gray-500">ความคืบหน้า</span><span class="font-bold ${statusColor}">${progress}%</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${isComplete ? 'bg-green-500' : 'bg-theme-500'}" style="width: ${progress}%"></div></div></div><div class="flex gap-2 pt-3 border-t border-gray-200/60">${actionsHtml}</div></div></div>`;
-                    });
-                    this.stationsGridContainer.innerHTML = html;
-                 });
+                    html += `<div class="${cardBgClass} rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all border"><div class="p-5"><div class="flex justify-between items-start mb-4"><div><span class="font-bold uppercase tracking-wider text-gray-500">หน่วยเลือกตั้งที่</span><h3 class="text-3xl font-bold text-theme-700">${station.StationNumber}</h3></div><div class="bg-white/80 rounded-full p-2 shadow-sm"><i class="fa-solid fa-building-user text-theme-500 text-xl"></i></div></div><div class="space-y-2 mb-4"><p class="text-sm text-gray-700 font-medium"><i class="fa-solid fa-map-location-dot w-5 text-center mr-1 text-gray-400"></i> ${subDistrictDisplay}</p><p class="text-sm text-gray-600 truncate"><i class="fa-solid fa-location-dot w-5 text-center mr-1 text-gray-400"></i> ${station.Location} ${mapBtn}</p></div><div class="mb-4"><div class="flex justify-between text-xs mb-1"><span class="font-semibold text-gray-500">ความคืบหน้า</span><span class="font-bold ${statusColor}">${progress}%</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${isComplete ? 'bg-green-500' : 'bg-theme-500'}" style="width: ${progress}%"></div></div></div><div class="flex gap-2 pt-3 border-t border-gray-200/60">${actionsHtml}</div></div></div>`;
+                });
+                this.stationsGridContainer.innerHTML = html;
             },
 
-            renderAdminDashboard(summary) {
+            renderAdminDashboard(summary, globalStats) {
                  if(!summary || summary.length === 0) { this.adminDashboardContent.innerHTML = 'ไม่มีข้อมูลสรุป'; return; }
                  
-                 let totalStationsSum = 0; let completedStationsSum = 0;
-                 summary.forEach(agency => { totalStationsSum += agency.totalStations; completedStationsSum += agency.completedStations; });
-                 const overallPercent = totalStationsSum > 0 ? Math.round((completedStationsSum / totalStationsSum) * 100) : 0;
+                 // Use globalStats if available, else fallback to manual sum
+                 let totalStationsSum = globalStats ? globalStats.totalStations : 0;
+                 let completedStationsSum = globalStats ? globalStats.completedStations : 0;
+                 let overallPercent = globalStats ? globalStats.overallProgress : 0;
+
+                 if (!globalStats) {
+                     // Fallback: Summation (Exclude Security to avoid double count)
+                     summary.forEach(agency => { 
+                        if (!agency.agencyName.includes('รักษาความปลอดภัย') && !agency.agencyName.includes('รปภ')) {
+                            totalStationsSum += agency.totalStations; 
+                            completedStationsSum += agency.completedStations; 
+                        }
+                     });
+                     overallPercent = totalStationsSum > 0 ? Math.round((completedStationsSum / totalStationsSum) * 100) : 0;
+                 }
 
                  let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
                  
@@ -937,7 +1021,6 @@
                  </div>`;
             },
 
-            // [OPTIMIZATION] เปลี่ยน onkeyup เป็นเรียก debouncedUpdateSummary เพื่อลดการค้างตอนพิมพ์
             generatePersonnelTabs() {
                 const tabContainer = document.getElementById('personnel-tabs');
                 const contentContainer = document.getElementById('personnel-tab-content');
@@ -947,15 +1030,16 @@
 
                 this.personnelTabsConfig.forEach((tab) => {
                     tabHtml += `<li class="mr-1" role="presentation"><button class="inline-block p-3 rounded-t-lg text-base bg-gray-100 text-gray-500 border-t border-l border-r border-gray-300 transition-colors" id="tab-btn-${tab.id}" type="button" role="tab" onclick="app.activateTab('${tab.id}')">${tab.title}</button></li>`;
+                    // Updated to handle readonly state on inputs
                     const readonlyAttr = this.isReadOnly ? 'readonly' : '';
                     contentHtml += `
                         <div class="hidden p-4 bg-white border border-gray-300 rounded-b-lg" id="tab-pane-${tab.id}" role="tabpanel">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">คำนำหน้า</label><input type="text" id="${tab.id}_Prefix" name="${tab.id}_Prefix" class="form-input-custom bg-white" placeholder="นาย/นาง/น.ส." onkeyup="app.debouncedUpdateSummary()" ${readonlyAttr}></div>
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">ชื่อ</label><input type="text" id="${tab.id}_FirstName" name="${tab.id}_FirstName" class="form-input-custom bg-white" onkeyup="app.debouncedUpdateSummary()" ${readonlyAttr}></div>
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">นามสกุล</label><input type="text" id="${tab.id}_LastName" name="${tab.id}_LastName" class="form-input-custom bg-white" onkeyup="app.debouncedUpdateSummary()" ${readonlyAttr}></div>
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">คำนำหน้า</label><input type="text" id="${tab.id}_Prefix" name="${tab.id}_Prefix" class="form-input-custom bg-white" placeholder="นาย/นาง/น.ส." onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">ชื่อ</label><input type="text" id="${tab.id}_FirstName" name="${tab.id}_FirstName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">นามสกุล</label><input type="text" id="${tab.id}_LastName" name="${tab.id}_LastName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
                                <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เลขบัตรประชาชน</label><input type="text" id="${tab.id}_IDCard" name="${tab.id}_IDCard" class="form-input-custom bg-white" maxlength="13" onfocus="app.unmaskField(this)" onblur="app.maskField(this); app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label><input type="tel" id="${tab.id}_Phone" name="${tab.id}_Phone" class="form-input-custom bg-white" placeholder="0XXXXXXXXX" onkeyup="app.debouncedUpdateSummary()" ${readonlyAttr}></div>
+                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label><input type="tel" id="${tab.id}_Phone" name="${tab.id}_Phone" class="form-input-custom bg-white" placeholder="0XXXXXXXXX" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
                             </div>
                         </div>`;
                 });
@@ -963,32 +1047,28 @@
                 this.updatePersonnelSummary();
             },
             
-            // [OPTIMIZATION] ใช้ requestAnimationFrame ป้องกัน UI กระตุก
             updatePersonnelSummary() {
                 if (!this.personnelSummaryBody || !this.personnelTabsConfig) return;
-                
-                requestAnimationFrame(() => {
-                    let html = '';
-                    this.personnelTabsConfig.forEach(tab => {
-                        const prefix = document.getElementById(`${tab.id}_Prefix`)?.value || '';
-                        const fname = document.getElementById(`${tab.id}_FirstName`)?.value || '';
-                        const lname = document.getElementById(`${tab.id}_LastName`)?.value || '';
-                        const idCardRaw = document.getElementById(`${tab.id}_IDCard`)?.value || '';
-                        const phone = document.getElementById(`${tab.id}_Phone`)?.value || '';
-                        
-                        const fullName = `${prefix} ${fname} ${lname}`.trim();
-                        const isFilled = fullName !== '';
-                        
-                        html += `
-                            <tr class="${isFilled ? 'bg-white' : 'bg-gray-50 text-gray-400'} border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                <td class="py-3 px-4 font-medium">${tab.title}</td>
-                                <td class="py-3 px-4">${fullName || '-'}</td>
-                                <td class="py-3 px-4 font-mono text-xs">${idCardRaw || '-'}</td>
-                                <td class="py-3 px-4">${phone || '-'}</td>
-                            </tr>`;
-                    });
-                    this.personnelSummaryBody.innerHTML = html;
+                let html = '';
+                this.personnelTabsConfig.forEach(tab => {
+                    const prefix = document.getElementById(`${tab.id}_Prefix`)?.value || '';
+                    const fname = document.getElementById(`${tab.id}_FirstName`)?.value || '';
+                    const lname = document.getElementById(`${tab.id}_LastName`)?.value || '';
+                    const idCardRaw = document.getElementById(`${tab.id}_IDCard`)?.value || '';
+                    const phone = document.getElementById(`${tab.id}_Phone`)?.value || '';
+                    
+                    const fullName = `${prefix} ${fname} ${lname}`.trim();
+                    const isFilled = fullName !== '';
+                    
+                    html += `
+                        <tr class="${isFilled ? 'bg-white' : 'bg-gray-50 text-gray-400'} border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td class="py-3 px-4 font-medium">${tab.title}</td>
+                            <td class="py-3 px-4">${fullName || '-'}</td>
+                            <td class="py-3 px-4 font-mono text-xs">${idCardRaw || '-'}</td>
+                            <td class="py-3 px-4">${phone || '-'}</td>
+                        </tr>`;
                 });
+                this.personnelSummaryBody.innerHTML = html;
             },
 
             activateTab(tabId) {
@@ -1021,6 +1101,7 @@
                  this.loginPage.classList.add('hidden'); this.mainPage.classList.add('hidden'); this.editFormPage.classList.remove('hidden');
                  this.stationForm.reset(); document.getElementById('StationID').value = ''; 
                  
+                 // Handle ReadOnly State
                  if (this.isReadOnly) {
                      this.editFormReadonlyAlert.classList.remove('hidden');
                      this.formActionButtons.classList.add('hidden');
@@ -1029,6 +1110,7 @@
                      this.formActionButtons.classList.remove('hidden');
                  }
 
+                 // Fix: Force regenerate tabs to ensure DOM elements exist and are fresh
                  if (this.personnelTabsConfig && this.personnelTabsConfig.length > 0) {
                      this.generatePersonnelTabs();
                      this.activateTab(this.personnelTabsConfig[0].id);
@@ -1036,48 +1118,50 @@
 
                  this.isMuslimFoodCheckbox.checked = false; this.toggleMuslimFoodDetails(false);
 
+                 const mainFields = ['Agency', 'StationNumber', 'SubDistrict', 'Location', 'Notes'];
                  const allInputs = this.stationForm.querySelectorAll('input, select, textarea');
                  
-                 // [OPTIMIZATION] Batch class removal
-                 requestAnimationFrame(() => {
-                     allInputs.forEach(el => {
-                         el.readOnly = false;
-                         el.disabled = false;
-                         el.classList.remove('bg-gray-200', 'cursor-not-allowed', 'bg-slate-50', 'text-gray-500');
-                         el.classList.add('bg-white', 'text-gray-900');
-                     });
-
-                     if (this.isReadOnly) {
-                         allInputs.forEach(el => {
-                             el.readOnly = true;
-                             if(el.type === 'checkbox') el.disabled = true;
-                             el.classList.remove('bg-white', 'text-gray-900');
-                             el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600');
-                         });
-                     } else if (this.currentUser !== 'Administrator') {
-                         ['Agency', 'StationNumber', 'SubDistrict', 'Location'].forEach(fid => { 
-                             const el = document.getElementById(fid); 
-                             if(el) { 
-                                 el.readOnly = true; 
-                                 el.classList.remove('bg-white', 'text-gray-900'); 
-                                 el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600'); 
-                             } 
-                         });
-                         const agencyEl = document.getElementById('Agency'); if(agencyEl) agencyEl.value = this.currentUser;
-                         if (this.addRoleBtn) this.addRoleBtn.classList.add('hidden');
-                         if (this.manageRolesBtn) this.manageRolesBtn.classList.add('hidden');
-                     } else {
-                         if (this.addRoleBtn) this.addRoleBtn.classList.remove('hidden');
-                         if (this.manageRolesBtn) this.manageRolesBtn.classList.remove('hidden');
-                     }
-
-                     const muslimContainer = document.getElementById('muslim-food-section');
-                     if (this.systemSettings && this.systemSettings.showMuslimFood === false) {
-                         if(muslimContainer) muslimContainer.classList.add('hidden');
-                     } else {
-                         if(muslimContainer) muslimContainer.classList.remove('hidden');
-                     }
+                 // Reset classes first
+                 allInputs.forEach(el => {
+                     el.readOnly = false;
+                     el.disabled = false;
+                     el.classList.remove('bg-gray-200', 'cursor-not-allowed', 'bg-slate-50', 'text-gray-500');
+                     el.classList.add('bg-white', 'text-gray-900');
                  });
+
+                 // Apply ReadOnly Rules
+                 if (this.isReadOnly) {
+                     allInputs.forEach(el => {
+                         el.readOnly = true;
+                         // Checkboxes needs disabled instead of readonly
+                         if(el.type === 'checkbox') el.disabled = true;
+                         el.classList.remove('bg-white', 'text-gray-900');
+                         el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600');
+                     });
+                 } else if (this.currentUser !== 'Administrator') {
+                     // Normal User: Readonly some fields
+                     ['Agency', 'StationNumber', 'SubDistrict', 'Location'].forEach(fid => { 
+                         const el = document.getElementById(fid); 
+                         if(el) { 
+                             el.readOnly = true; 
+                             el.classList.remove('bg-white', 'text-gray-900'); 
+                             el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600'); 
+                         } 
+                     });
+                     const agencyEl = document.getElementById('Agency'); if(agencyEl) agencyEl.value = this.currentUser;
+                     if (this.addRoleBtn) this.addRoleBtn.classList.add('hidden');
+                 } else {
+                     // Administrator
+                     if (this.addRoleBtn) this.addRoleBtn.classList.remove('hidden');
+                 }
+
+                 // --- UPDATED: Hide Muslim Food Section if disabled in settings ---
+                 const muslimContainer = document.getElementById('muslim-food-section');
+                 if (this.systemSettings && this.systemSettings.showMuslimFood === false) {
+                     if(muslimContainer) muslimContainer.classList.add('hidden');
+                 } else {
+                     if(muslimContainer) muslimContainer.classList.remove('hidden');
+                 }
 
                  if(id) { 
                      this.formTitle.textContent = this.isReadOnly ? 'ดูข้อมูลหน่วยเลือกตั้ง' : 'แก้ไขข้อมูลหน่วยเลือกตั้ง'; 
@@ -1086,55 +1170,56 @@
                      this.formTitle.textContent = 'เพิ่มข้อมูลใหม่';
                      if(this.currentUser !== 'Administrator') { const agencyEl = document.getElementById('Agency'); if(agencyEl) agencyEl.value = this.currentUser; }
                      Swal.close(); 
+                     // Need to re-generate tabs to apply readonly state to new dynamic inputs
                      this.generatePersonnelTabs();
                  }
             },
             
-            // [OPTIMIZATION] ลดการวนลูป Query Selector ตอน Load ข้อมูลมาใส่ฟอร์ม
             loadStationDataForEdit(id) {
                 apiCall('getPollingStationData', { stationId: id }).then(data => {
                     Swal.close();
                     if(data) {
+                        // Create a normalized map for case-insensitive lookup
                         const normalizedData = {};
                         Object.keys(data).forEach(k => normalizedData[k.toLowerCase()] = data[k]);
 
+                        // Iterate over inputs in the form instead of data keys to ensure we fill what exists
                         const inputs = this.stationForm.querySelectorAll('input, select, textarea');
-                        
-                        requestAnimationFrame(() => {
-                            inputs.forEach(el => {
-                                if (el.id && !['Agency', 'StationNumber', 'SubDistrict', 'Location', 'Notes'].includes(el.id)) {
-                                     const key = el.id.toLowerCase();
-                                     if (normalizedData[key] !== undefined) {
-                                         const val = normalizedData[key];
-                                         if(el.id.endsWith('_IDCard')) { 
-                                             el.dataset.realValue = val; 
-                                             el.value = this.maskIDCard(val); 
-                                         } else if(el.type !== 'checkbox' && el.type !== 'radio') {
-                                             el.value = val;
-                                         }
+                        inputs.forEach(el => {
+                            if (el.id && !['Agency', 'StationNumber', 'SubDistrict', 'Location', 'Notes'].includes(el.id)) {
+                                 const key = el.id.toLowerCase();
+                                 if (normalizedData[key] !== undefined) {
+                                     const val = normalizedData[key];
+                                     if(el.id.endsWith('_IDCard')) { 
+                                         el.dataset.realValue = val; 
+                                         el.value = this.maskIDCard(val); 
+                                     } else if(el.type !== 'checkbox' && el.type !== 'radio') {
+                                         el.value = val;
                                      }
-                                }
-                            });
-                            
-                            Object.keys(data).forEach(k => {
-                                const el = document.getElementById(k);
-                                if(el) {
-                                     if(k.endsWith('_IDCard')) { el.dataset.realValue = data[k]; el.value = this.maskIDCard(data[k]); }
-                                     else if(k !== 'IsMuslimFood') el.value = data[k];
-                                }
-                            });
-
-                            const mainFields = ['Agency', 'StationNumber', 'SubDistrict', 'Location', 'Notes'];
-                            mainFields.forEach(field => {
-                                const el = document.getElementById(field);
-                                if (el && data[field]) el.value = data[field];
-                            });
-
-                            if (data.IsMuslimFood === 'TRUE' || data.IsMuslimFood === true) { this.isMuslimFoodCheckbox.checked = true; this.toggleMuslimFoodDetails(true); } 
-                            else { this.isMuslimFoodCheckbox.checked = false; this.toggleMuslimFoodDetails(false); }
-                            
-                            this.updatePersonnelSummary(); 
+                                 }
+                            }
                         });
+                        
+                        // Direct mapping fallback
+                        Object.keys(data).forEach(k => {
+                            const el = document.getElementById(k);
+                            if(el) {
+                                 if(k.endsWith('_IDCard')) { el.dataset.realValue = data[k]; el.value = this.maskIDCard(data[k]); }
+                                 else if(k !== 'IsMuslimFood') el.value = data[k];
+                            }
+                        });
+
+                        // Main fields explicit set
+                        const mainFields = ['Agency', 'StationNumber', 'SubDistrict', 'Location', 'Notes'];
+                        mainFields.forEach(field => {
+                            const el = document.getElementById(field);
+                            if (el && data[field]) el.value = data[field];
+                        });
+
+                        if (data.IsMuslimFood === 'TRUE' || data.IsMuslimFood === true) { this.isMuslimFoodCheckbox.checked = true; this.toggleMuslimFoodDetails(true); } 
+                        else { this.isMuslimFoodCheckbox.checked = false; this.toggleMuslimFoodDetails(false); }
+                        
+                        this.updatePersonnelSummary(); // Re-render tabs to ensure values are shown correctly in summary
                     } else {
                          this.showErrorWithRetry('ไม่พบข้อมูล หรือการเชื่อมต่อล้มเหลว', () => this.loadStationDataForEdit(id));
                     }
@@ -1169,7 +1254,8 @@
                  Swal.fire({ title:'ยืนยันลบ?', showCancelButton:true, confirmButtonColor:'#d33' }).then(r => {
                      if(r.isConfirmed) {
                          this.showLoading('กำลังลบ...');
-                         apiCall('deletePollingStation', { stationId: id }).then(res => { 
+                         // ส่งชื่อหน่วยงานปัจจุบันไปใน API ด้วยเพื่อบันทึก Log การลบ
+                         apiCall('deletePollingStation', { stationId: id, agency: this.currentUser }).then(res => { 
                              this.showSuccess('ลบแล้ว'); this.loadDashboardData(); 
                          }).catch(e => this.showError(e.message));
                      }
@@ -1214,17 +1300,7 @@
             
             maskIDCard(id) { return id && id.length===13 ? `${id[0]}-XXXX-XXXXX-${id.substring(10,12)}-${id[12]}` : id; },
             unmaskField(el) { if(!this.isReadOnly && el.dataset.realValue) el.value = el.dataset.realValue; },
-            
-            // [OPTIMIZATION] ลดการ re-render เวลา blur ฟิลด์ 
-            maskField(el) { 
-                if(!this.isReadOnly) { 
-                    const oldVal = el.value;
-                    el.dataset.realValue = oldVal; 
-                    const masked = this.maskIDCard(oldVal);
-                    if (el.value !== masked) el.value = masked; 
-                } 
-            },
-            
+            maskField(el) { if(!this.isReadOnly) { el.dataset.realValue = el.value; el.value = this.maskIDCard(el.value); } },
             handleTogglePassword() { const el = document.getElementById('password'); el.type = el.type === 'password' ? 'text' : 'password'; },
             toggleLoginButtonState() { const chk = document.getElementById('pdpa-checkbox'); this.loginSubmitBtn.disabled = !chk.checked; this.loginSubmitBtn.classList.toggle('opacity-50', !chk.checked); }
         };

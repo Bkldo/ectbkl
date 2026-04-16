@@ -375,9 +375,19 @@
             async loadRolesInBackground() {
                 try {
                     const roles = await apiCall('getPersonnelRoles');
-                    this.personnelTabsConfig = roles;
+                    // ป้องกัน Error กรณี Server ส่งข้อมูลผิดพลาดกลับมา (ทำให้เป็น Object แทน Array)
+                    if (Array.isArray(roles)) {
+                        this.personnelTabsConfig = roles;
+                    } else {
+                        console.warn('Failed to load roles array:', roles);
+                        this.personnelTabsConfig = [];
+                    }
                     this.generatePersonnelTabs();
-                } catch (e) { console.error('Failed to load roles', e); }
+                } catch (e) { 
+                    console.error('Failed to load roles', e); 
+                    this.personnelTabsConfig = [];
+                    this.generatePersonnelTabs();
+                }
             },
 
             setupEventListeners() {
@@ -866,6 +876,75 @@
                 });
             },
             
+            generatePersonnelTabs() {
+                const tabContainer = document.getElementById('personnel-tabs');
+                const contentContainer = document.getElementById('personnel-tab-content');
+                
+                // ป้องกัน Error หากข้อมูลไม่ใช่ Array
+                if (!this.personnelTabsConfig || !Array.isArray(this.personnelTabsConfig)) { 
+                    if(tabContainer) tabContainer.innerHTML = '';
+                    if(contentContainer) contentContainer.innerHTML = '';
+                    return; 
+                }
+
+                let tabHtml = ''; let contentHtml = '';
+
+                this.personnelTabsConfig.forEach((tab) => {
+                    tabHtml += `<li class="mr-1" role="presentation"><button class="inline-block p-3 rounded-t-lg text-base bg-gray-100 text-gray-500 border-t border-l border-r border-gray-300 transition-colors" id="tab-btn-${tab.id}" type="button" role="tab" onclick="app.activateTab('${tab.id}')">${tab.title}</button></li>`;
+                    // Updated to handle readonly state on inputs
+                    const readonlyAttr = this.isReadOnly ? 'readonly' : '';
+                    contentHtml += `
+                        <div class="hidden p-4 bg-white border border-gray-300 rounded-b-lg" id="tab-pane-${tab.id}" role="tabpanel">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">คำนำหน้า</label><input type="text" id="${tab.id}_Prefix" name="${tab.id}_Prefix" class="form-input-custom bg-white" placeholder="นาย/นาง/น.ส." onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">ชื่อ</label><input type="text" id="${tab.id}_FirstName" name="${tab.id}_FirstName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div><label class="block text-base font-medium text-gray-700 mb-1">นามสกุล</label><input type="text" id="${tab.id}_LastName" name="${tab.id}_LastName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เลขบัตรประชาชน</label><input type="text" id="${tab.id}_IDCard" name="${tab.id}_IDCard" class="form-input-custom bg-white" maxlength="13" onfocus="app.unmaskField(this)" onblur="app.maskField(this); app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label><input type="tel" id="${tab.id}_Phone" name="${tab.id}_Phone" class="form-input-custom bg-white" placeholder="0XXXXXXXXX" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
+                            </div>
+                        </div>`;
+                });
+                tabContainer.innerHTML = tabHtml; contentContainer.innerHTML = contentHtml;
+                this.updatePersonnelSummary();
+            },
+            
+            updatePersonnelSummary() {
+                if (!this.personnelSummaryBody || !this.personnelTabsConfig || !Array.isArray(this.personnelTabsConfig)) return;
+                let html = '';
+                this.personnelTabsConfig.forEach(tab => {
+                    const prefix = document.getElementById(`${tab.id}_Prefix`)?.value || '';
+                    const fname = document.getElementById(`${tab.id}_FirstName`)?.value || '';
+                    const lname = document.getElementById(`${tab.id}_LastName`)?.value || '';
+                    const idCardRaw = document.getElementById(`${tab.id}_IDCard`)?.value || '';
+                    const phone = document.getElementById(`${tab.id}_Phone`)?.value || '';
+                    
+                    const fullName = `${prefix} ${fname} ${lname}`.trim();
+                    const isFilled = fullName !== '';
+                    
+                    html += `
+                        <tr class="${isFilled ? 'bg-white' : 'bg-gray-50 text-gray-400'} border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td class="py-3 px-4 font-medium">${tab.title}</td>
+                            <td class="py-3 px-4">${fullName || '-'}</td>
+                            <td class="py-3 px-4 font-mono text-xs">${idCardRaw || '-'}</td>
+                            <td class="py-3 px-4">${phone || '-'}</td>
+                        </tr>`;
+                });
+                this.personnelSummaryBody.innerHTML = html;
+            },
+
+            activateTab(tabId) {
+                if (!this.personnelTabsConfig || !Array.isArray(this.personnelTabsConfig)) return;
+                this.personnelTabsConfig.forEach(tab => {
+                    const btn = document.getElementById(`tab-btn-${tab.id}`);
+                    const pane = document.getElementById(`tab-pane-${tab.id}`);
+                    if (tab.id === tabId) {
+                        btn.classList.add('tab-active'); btn.classList.remove('bg-gray-100', 'text-gray-500'); btn.style.marginBottom = '-1px'; pane.classList.remove('hidden');
+                    } else {
+                        btn.classList.remove('tab-active'); btn.classList.add('bg-gray-100', 'text-gray-500'); btn.style.marginBottom = '0px'; pane.classList.add('hidden');
+                    }
+                });
+            },
+
             adjustTabContainer() {
                 const tabList = document.getElementById('personnel-tabs');
                 if (tabList && tabList.parentElement) tabList.parentElement.classList.remove('mb-4', 'border-b', 'border-gray-200');
@@ -1021,68 +1100,6 @@
                  </div>`;
             },
 
-            generatePersonnelTabs() {
-                const tabContainer = document.getElementById('personnel-tabs');
-                const contentContainer = document.getElementById('personnel-tab-content');
-                if (!this.personnelTabsConfig) { tabContainer.innerHTML = ''; return; }
-
-                let tabHtml = ''; let contentHtml = '';
-
-                this.personnelTabsConfig.forEach((tab) => {
-                    tabHtml += `<li class="mr-1" role="presentation"><button class="inline-block p-3 rounded-t-lg text-base bg-gray-100 text-gray-500 border-t border-l border-r border-gray-300 transition-colors" id="tab-btn-${tab.id}" type="button" role="tab" onclick="app.activateTab('${tab.id}')">${tab.title}</button></li>`;
-                    // Updated to handle readonly state on inputs
-                    const readonlyAttr = this.isReadOnly ? 'readonly' : '';
-                    contentHtml += `
-                        <div class="hidden p-4 bg-white border border-gray-300 rounded-b-lg" id="tab-pane-${tab.id}" role="tabpanel">
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">คำนำหน้า</label><input type="text" id="${tab.id}_Prefix" name="${tab.id}_Prefix" class="form-input-custom bg-white" placeholder="นาย/นาง/น.ส." onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">ชื่อ</label><input type="text" id="${tab.id}_FirstName" name="${tab.id}_FirstName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                               <div><label class="block text-base font-medium text-gray-700 mb-1">นามสกุล</label><input type="text" id="${tab.id}_LastName" name="${tab.id}_LastName" class="form-input-custom bg-white" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เลขบัตรประชาชน</label><input type="text" id="${tab.id}_IDCard" name="${tab.id}_IDCard" class="form-input-custom bg-white" maxlength="13" onfocus="app.unmaskField(this)" onblur="app.maskField(this); app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                               <div class="md:col-span-1"><label class="block text-base font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label><input type="tel" id="${tab.id}_Phone" name="${tab.id}_Phone" class="form-input-custom bg-white" placeholder="0XXXXXXXXX" onkeyup="app.updatePersonnelSummary()" ${readonlyAttr}></div>
-                            </div>
-                        </div>`;
-                });
-                tabContainer.innerHTML = tabHtml; contentContainer.innerHTML = contentHtml;
-                this.updatePersonnelSummary();
-            },
-            
-            updatePersonnelSummary() {
-                if (!this.personnelSummaryBody || !this.personnelTabsConfig) return;
-                let html = '';
-                this.personnelTabsConfig.forEach(tab => {
-                    const prefix = document.getElementById(`${tab.id}_Prefix`)?.value || '';
-                    const fname = document.getElementById(`${tab.id}_FirstName`)?.value || '';
-                    const lname = document.getElementById(`${tab.id}_LastName`)?.value || '';
-                    const idCardRaw = document.getElementById(`${tab.id}_IDCard`)?.value || '';
-                    const phone = document.getElementById(`${tab.id}_Phone`)?.value || '';
-                    
-                    const fullName = `${prefix} ${fname} ${lname}`.trim();
-                    const isFilled = fullName !== '';
-                    
-                    html += `
-                        <tr class="${isFilled ? 'bg-white' : 'bg-gray-50 text-gray-400'} border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td class="py-3 px-4 font-medium">${tab.title}</td>
-                            <td class="py-3 px-4">${fullName || '-'}</td>
-                            <td class="py-3 px-4 font-mono text-xs">${idCardRaw || '-'}</td>
-                            <td class="py-3 px-4">${phone || '-'}</td>
-                        </tr>`;
-                });
-                this.personnelSummaryBody.innerHTML = html;
-            },
-
-            activateTab(tabId) {
-                this.personnelTabsConfig.forEach(tab => {
-                    const btn = document.getElementById(`tab-btn-${tab.id}`);
-                    const pane = document.getElementById(`tab-pane-${tab.id}`);
-                    if (tab.id === tabId) {
-                        btn.classList.add('tab-active'); btn.classList.remove('bg-gray-100', 'text-gray-500'); btn.style.marginBottom = '-1px'; pane.classList.remove('hidden');
-                    } else {
-                        btn.classList.remove('tab-active'); btn.classList.add('bg-gray-100', 'text-gray-500'); btn.style.marginBottom = '0px'; pane.classList.add('hidden');
-                    }
-                });
-            },
-            
             showNewsManagementModal() {
                  this.showLoading('กำลังโหลดข้อมูลประกาศ...');
                  apiCall('getNewsData').then(news => {
@@ -1111,7 +1128,7 @@
                  }
 
                  // Fix: Force regenerate tabs to ensure DOM elements exist and are fresh
-                 if (this.personnelTabsConfig && this.personnelTabsConfig.length > 0) {
+                 if (this.personnelTabsConfig && Array.isArray(this.personnelTabsConfig) && this.personnelTabsConfig.length > 0) {
                      this.generatePersonnelTabs();
                      this.activateTab(this.personnelTabsConfig[0].id);
                  }
@@ -1238,10 +1255,12 @@
                 const data = Object.fromEntries(fd.entries());
                 data.IsMuslimFood = fd.get('IsMuslimFood') ? 'TRUE' : 'FALSE';
 
-                 this.personnelTabsConfig.forEach(tab => {
-                    const id = `${tab.id}_IDCard`; const el = document.getElementById(id);
-                    if(el && el.dataset.realValue) data[id] = el.dataset.realValue;
-                });
+                if (this.personnelTabsConfig && Array.isArray(this.personnelTabsConfig)) {
+                    this.personnelTabsConfig.forEach(tab => {
+                        const id = `${tab.id}_IDCard`; const el = document.getElementById(id);
+                        if(el && el.dataset.realValue) data[id] = el.dataset.realValue;
+                    });
+                }
                 
                 apiCall('savePollingStationData', { dataObject: data }).then(res => {
                     if(res.status==='success') { this.showSuccess('บันทึกแล้ว'); this.loadDashboardData(); this.showMainPage(); }

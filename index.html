@@ -357,7 +357,7 @@
                 this.showLoading('กำลังเริ่มต้นระบบ...');
                 try {
                     const [settings, agencies, preloadedNews] = await Promise.all([
-                        apiCall('getThemeSettings').catch(() => ({ theme: 'green', showMuslimFood: true, calcMode: 'ALL' })),
+                        apiCall('getSystemSettings').catch(() => ({ theme: 'green', showMuslimFood: true, calcMode: 'ALL', guardFillBy: 'SECURITY' })),
                         apiCall('getAgencyList').catch(() => []),
                         apiCall('getNewsData').catch(() => null)
                     ]);
@@ -559,7 +559,7 @@
             showSystemSettings() {
                 this.showLoading('กำลังโหลดการตั้งค่า...');
                 apiCall('getSystemSettings').then(settings => {
-                    settings = settings || { theme: 'green', startTime: '', endTime: '', showMuslimFood: true, calcMode: 'ALL' };
+                    settings = settings || { theme: 'green', startTime: '', endTime: '', showMuslimFood: true, calcMode: 'ALL', guardFillBy: 'SECURITY' };
                     Swal.close();
                     const colorOptions = Object.keys(this.themes).map(color => {
                         const bg = this.themes[color][500];
@@ -567,10 +567,39 @@
                         return `<div onclick="app.selectTheme('${color}')" class="cursor-pointer w-12 h-12 rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform m-2 border-2 ${isSelected ? 'border-gray-600 ring-2 ring-gray-300' : 'border-transparent'}" style="background-color: ${bg};">${isSelected ? '<i class="fa-solid fa-check text-white"></i>' : ''}</div>`;
                     }).join('');
 
+                    const secRoles = this.personnelTabsConfig.filter(r => r.title.includes('รักษาความปลอดภัย') || r.title.includes('รปภ') || r.title.toLowerCase().includes('security'));
+                    let guardSettingsHtml = '';
+                    if (secRoles.length === 0) {
+                        guardSettingsHtml = '<div class="text-sm text-gray-500">ไม่พบตำแหน่งเจ้าหน้าที่รักษาความปลอดภัยในระบบ</div>';
+                    } else {
+                        secRoles.forEach(role => {
+                            let roleVal = 'SECURITY';
+                            if (typeof settings.guardFillBy === 'object' && settings.guardFillBy[role.id]) {
+                                roleVal = settings.guardFillBy[role.id];
+                            } else if (typeof settings.guardFillBy === 'string') {
+                                roleVal = settings.guardFillBy;
+                            }
+                            
+                            guardSettingsHtml += `
+                                <div class="mb-2 p-2 border border-gray-200 rounded bg-white">
+                                    <div class="font-bold text-sm mb-1 text-theme-700">${role.title}</div>
+                                    <div class="flex items-center gap-4">
+                                        <label class="text-sm cursor-pointer flex items-center">
+                                            <input type="radio" name="guard-fill-${role.id}" value="SECURITY" ${roleVal === 'SECURITY' ? 'checked' : ''} class="mr-1"> ตำรวจ/รปภ. บันทึก
+                                        </label>
+                                        <label class="text-sm cursor-pointer flex items-center">
+                                            <input type="radio" name="guard-fill-${role.id}" value="AGENCY" ${roleVal === 'AGENCY' ? 'checked' : ''} class="mr-1"> โรงเรียน บันทึก
+                                        </label>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+
                     Swal.fire({
                         title: 'ตั้งค่าระบบ',
                         html: `
-                            <div class="text-left space-y-6 px-2">
+                            <div class="text-left space-y-5 px-2 max-h-[70vh] overflow-y-auto overflow-x-hidden">
                                 <div><label class="block text-sm font-bold text-gray-700 mb-2">ธีมสีระบบ</label><div class="flex flex-wrap justify-center bg-gray-50 p-2 rounded-lg border border-gray-200">${colorOptions}</div></div>
                                 <hr class="border-gray-200">
                                 <div><label class="block text-sm font-bold text-gray-700 mb-2"><i class="fa-solid fa-clock mr-1"></i> เวลาเปิด-ปิดระบบ</label>
@@ -593,6 +622,12 @@
                                     </div>
                                 </div>
                                 <hr class="border-gray-200">
+                                <div><label class="block text-sm font-bold text-gray-700 mb-2"><i class="fa-solid fa-shield-halved mr-1"></i> สิทธิ์การบันทึกข้อมูล รปภ. (แยกตามตำแหน่ง)</label>
+                                    <div class="flex flex-col gap-2 p-3 bg-gray-50 rounded border border-gray-200" id="guard-settings-container">
+                                        ${guardSettingsHtml}
+                                    </div>
+                                </div>
+                                <hr class="border-gray-200">
                                 <div><label class="block text-sm font-bold text-gray-700 mb-2"><i class="fa-solid fa-sliders mr-1"></i> การตั้งค่าอื่นๆ</label>
                                     <div class="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border border-gray-200">
                                         <label class="text-sm font-medium text-gray-700 cursor-pointer" for="setting-show-muslim">แสดงตัวเลือกอาหารมุสลิม</label>
@@ -602,13 +637,21 @@
                                     </div>
                                 </div>
                             </div>`,
-                        width: '500px', showCancelButton: true, confirmButtonText: 'บันทึก', confirmButtonColor: 'var(--theme-600)',
+                        width: '550px', showCancelButton: true, confirmButtonText: 'บันทึก', confirmButtonColor: 'var(--theme-600)',
                         preConfirm: () => { 
+                            let guardFillByConfig = {};
+                            secRoles.forEach(role => {
+                                const checkedVal = document.querySelector(`input[name="guard-fill-${role.id}"]:checked`);
+                                if (checkedVal) guardFillByConfig[role.id] = checkedVal.value;
+                            });
+                            if (secRoles.length === 0) guardFillByConfig = settings.guardFillBy || 'SECURITY';
+
                             return { 
                                 start: document.getElementById('system-start').value, 
                                 end: document.getElementById('system-end').value,
                                 showMuslimFood: document.getElementById('setting-show-muslim').checked,
-                                calcMode: document.querySelector('input[name="calc-mode"]:checked').value
+                                calcMode: document.querySelector('input[name="calc-mode"]:checked').value,
+                                guardFillBy: guardFillByConfig
                             } 
                         }
                     }).then((result) => {
@@ -618,6 +661,7 @@
                                 this.showSuccess(res.message);
                                 this.systemSettings.showMuslimFood = result.value.showMuslimFood;
                                 this.systemSettings.calcMode = result.value.calcMode;
+                                this.systemSettings.guardFillBy = result.value.guardFillBy;
                                 if(this.currentUser) this.loadDashboardData();
                             }).catch(e => this.showError(e.message));
                         }
@@ -853,7 +897,14 @@
                 const select = document.getElementById('agency');
                 if (!select) return;
                 select.innerHTML = '<option value="" disabled selected>— เลือกหน่วยงาน —</option>';
-                agencies.forEach(agencyName => { if(agencyName !== 'Administrator') { select.innerHTML += `<option value="${agencyName}">${agencyName}</option>`; } });
+                agencies.forEach(agencyName => { 
+				// เช็คว่าเป็น รปภ. หรือไม่
+                    const isSecurity = agencyName.includes('รักษาความปลอดภัย') || agencyName.includes('รปภ');
+				// แสดงเฉพาะที่ไม่ใช่ Administrator และไม่ใช่ รปภ.
+                    if(agencyName !== 'Administrator' && !isSecurity) { 
+                        select.innerHTML += `<option value="${agencyName}">${agencyName}</option>`; 
+                    } 
+                });
                 select.innerHTML += `<option value="Administrator">Administrator</option>`;
             },
 
@@ -1243,6 +1294,9 @@
                      el.classList.add('bg-white', 'text-gray-900');
                  });
 
+                 // รีเซ็ตการแจ้งเตือนเรื่องการล็อค รปภ.
+                 document.querySelectorAll('.sec-lock-warning').forEach(el => el.remove());
+
                  if (this.isReadOnly) {
                      allInputs.forEach(el => {
                          el.readOnly = true;
@@ -1261,6 +1315,43 @@
                      });
                      const agencyEl = document.getElementById('Agency'); if(agencyEl) agencyEl.value = this.currentUser;
                      if (this.addRoleBtn) this.addRoleBtn.classList.add('hidden');
+
+                     // --- ระบบล็อคช่องกรอก รปภ. สำหรับฝั่งโรงเรียน (รายตำแหน่ง) ---
+                     const guardFillByConfig = this.systemSettings.guardFillBy || 'SECURITY';
+                     
+                     this.personnelTabsConfig.forEach(tab => {
+                         const isSecRole = tab.title.includes('รักษาความปลอดภัย') || tab.title.includes('รปภ') || tab.title.toLowerCase().includes('security');
+                         if (isSecRole) {
+                             let roleFillBy = 'SECURITY';
+                             if (typeof guardFillByConfig === 'object' && guardFillByConfig[tab.id]) {
+                                 roleFillBy = guardFillByConfig[tab.id];
+                             } else if (typeof guardFillByConfig === 'string') {
+                                 roleFillBy = guardFillByConfig;
+                             }
+
+                             if (roleFillBy === 'SECURITY') {
+                                 ['Prefix', 'FirstName', 'LastName', 'IDCard', 'Phone'].forEach(f => {
+                                     const el = document.getElementById(`${tab.id}_${f}`);
+                                     if(el) {
+                                         el.readOnly = true;
+                                         el.classList.remove('bg-white', 'text-gray-900');
+                                         el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600');
+                                     }
+                                 });
+
+                                 // แสดงแถบแจ้งเตือนด้านบน Tab นั้นๆ
+                                 const pane = document.getElementById(`tab-pane-${tab.id}`);
+                                 if (pane && !pane.querySelector('.sec-lock-warning')) {
+                                     const warnDiv = document.createElement('div');
+                                     warnDiv.className = 'sec-lock-warning mb-3 p-3 bg-yellow-50 text-yellow-800 text-sm rounded-lg border border-yellow-200 font-medium flex items-center shadow-sm';
+                                     warnDiv.innerHTML = '<i class="fa-solid fa-lock mr-2 text-lg"></i> ส่วนนี้ถูกกำหนดให้กรอกโดยเจ้าหน้าที่ตำรวจ/รปภ. โรงเรียน/หน่วยงานไม่สามารถแก้ไขได้';
+                                     pane.insertBefore(warnDiv, pane.firstChild);
+                                 }
+                             }
+                         }
+                     });
+                     // ------------------------------------------
+
                  } else {
                      if (this.addRoleBtn) this.addRoleBtn.classList.remove('hidden');
                  }

@@ -1259,8 +1259,8 @@
                      Swal.close();
                      Swal.fire({
                          title: 'จัดการประกาศข่าวสาร',
-                         html: `<div class="text-left space-y-4 p-2"><div><label class="block font-medium">หัวข้อ</label><input id="news-title" class="swal2-input" style="width: 100%; box-sizing: border-box; margin-top: 5px;" value="${news.title}"></div><div><label class="block font-medium">เนื้อหา</label><textarea id="news-content" class="swal2-textarea" style="width: 100%; box-sizing: border-box; margin-top: 5px;" rows="5">${news.content}</textarea></div><div><input id="news-enabled" type="checkbox" ${news.isEnabled ? 'checked' : ''}> <label>เปิดใช้งาน</label></div></div>`,
-                         width: 'clamp(320px, 90vw, 600px)', showCancelButton: true, confirmButtonText: 'บันทึก', confirmButtonColor: 'var(--theme-600)',
+                         html: `<div class="text-left space-y-4 p-2"><div><label class="block font-medium">หัวข้อ</label><input id="news-title" class="swal2-input" style="width: 90%; box-sizing: border-box; margin-top: 5px;" value="${news.title}"></div><div><label class="block font-medium">เนื้อหา</label><textarea id="news-content" class="swal2-textarea" style="width: 90%; box-sizing: border-box; margin-top: 5px;" rows="5">${news.content}</textarea></div><div><input id="news-enabled" type="checkbox" ${news.isEnabled ? 'checked' : ''}> <label>เปิดใช้งาน</label></div></div>`,
+                         width: 'clamp(320px, 90vw, 800px)', showCancelButton: true, cancelButtonText: 'ยกเลิก' , confirmButtonText: 'บันทึก', confirmButtonColor: 'var(--theme-600)',
                          preConfirm: () => { return { title: document.getElementById('news-title').value, content: document.getElementById('news-content').value, isEnabled: document.getElementById('news-enabled').checked }; }
                      }).then(res => { if(res.isConfirmed) { this.showLoading('กำลังบันทึก...'); apiCall('saveNewsData', { newsObject: res.value }).then(r => this.showSuccess(r.message)); } });
                  }).catch(e => this.showError(e.message));

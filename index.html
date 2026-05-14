@@ -643,6 +643,9 @@
                                             <label class="block text-xs text-gray-500 mb-1">Target ID (Group ID / User ID)</label>
                                             <input type="text" id="line-target-id" class="swal2-input m-0 w-full text-base" value="${settings.lineTargetId || ''}" placeholder="ใส่ Group ID หรือ User ID ที่นี่">
                                         </div>
+                                        <button type="button" onclick="app.testLineNotify()" class="mt-2 w-full py-2 bg-theme-100 text-theme-700 text-sm font-medium rounded border border-theme-200 hover:bg-theme-200 transition-colors">
+                                            <i class="fa-solid fa-paper-plane mr-1"></i> ทดสอบส่งแจ้งเตือนเดี๋ยวนี้
+                                        </button>
                                         <div class="flex items-center justify-between mt-1">
                                             <label class="text-sm font-medium text-gray-700 cursor-pointer" for="auto-line-enabled">เปิดใช้งานส่งอัตโนมัติ</label>
                                             <div class="form-check form-switch">
@@ -714,6 +717,27 @@
                         }
                     });
                 }).catch(e => this.showError(e.message));
+            },
+
+            testLineNotify() {
+                const token = document.getElementById('line-token').value;
+                const targetId = document.getElementById('line-target-id').value;
+                if(!token || !targetId) {
+                    Swal.showValidationMessage('กรุณากรอก Token และ Target ID ก่อนกดทดสอบ');
+                    return;
+                }
+                const btn = document.activeElement;
+                if(btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> กำลังส่ง...';
+                
+                apiCall('testLineNotifyWithParams', { token, targetId }).then(res => {
+                    if(res.status === 'success') {
+                        Swal.fire({ icon: 'success', title: 'ส่งสำเร็จ', text: 'ส่งข้อความทดสอบสำเร็จ! ตรวจสอบในแอป LINE ของคุณ', confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: res.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                    }
+                }).catch(e => {
+                    Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                });
             },
 
             selectTheme(color) { this.applyTheme(color); apiCall('saveThemeSettings', { themeColor: color }).catch(console.error); },

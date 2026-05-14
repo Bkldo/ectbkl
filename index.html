@@ -643,9 +643,14 @@
                                             <label class="block text-xs text-gray-500 mb-1">Target ID (Group ID / User ID)</label>
                                             <input type="text" id="line-target-id" class="swal2-input m-0 w-full text-base" value="${settings.lineTargetId || ''}" placeholder="ใส่ Group ID หรือ User ID ที่นี่">
                                         </div>
-                                        <button type="button" onclick="app.testLineNotify()" class="mt-2 w-full py-2 bg-theme-100 text-theme-700 text-sm font-medium rounded border border-theme-200 hover:bg-theme-200 transition-colors">
-                                            <i class="fa-solid fa-paper-plane mr-1"></i> ทดสอบส่งแจ้งเตือนเดี๋ยวนี้
-                                        </button>
+                                        <div class="flex gap-2 mt-2">
+                                            <button type="button" onclick="app.testLineNotify()" class="w-full py-2 bg-theme-100 text-theme-700 text-sm font-medium rounded border border-theme-200 hover:bg-theme-200 transition-colors">
+                                                <i class="fa-solid fa-paper-plane mr-1"></i> ทดสอบส่งเดี๋ยวนี้
+                                            </button>
+                                            <button type="button" onclick="app.resetLineStatus()" class="w-full py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded border border-gray-300 hover:bg-gray-200 transition-colors" title="รีเซ็ตสถานะเพื่อให้ส่งอัตโนมัติซ้ำได้อีกครั้งในวันนี้">
+                                                <i class="fa-solid fa-rotate-right mr-1"></i> รีเซ็ตส่งวันนี้ซ้ำ
+                                            </button>
+                                        </div>
                                         <div class="flex items-center justify-between mt-1">
                                             <label class="text-sm font-medium text-gray-700 cursor-pointer" for="auto-line-enabled">เปิดใช้งานส่งอัตโนมัติ</label>
                                             <div class="form-check form-switch">
@@ -737,6 +742,34 @@
                     }
                 }).catch(e => {
                     Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                });
+            },
+
+            resetLineStatus() {
+                Swal.fire({
+                    title: 'ยืนยันการรีเซ็ต',
+                    text: 'หากรีเซ็ตแล้ว ระบบจะสามารถส่งรายงานอัตโนมัติซ้ำได้อีกครั้งในวันนี้เมื่อถึงเวลาที่กำหนด ต้องการดำเนินการต่อหรือไม่?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: 'var(--theme-600)',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'ยืนยัน',
+                    cancelButtonText: 'ยกเลิก'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.showLoading('กำลังรีเซ็ต...');
+                        apiCall('resetAutoLineStatus').then(res => {
+                            if (res.status === 'success') {
+                                Swal.fire({ icon: 'success', title: 'สำเร็จ', text: res.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                            } else {
+                                Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: res.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                            }
+                        }).catch(e => {
+                            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: e.message, confirmButtonColor: 'var(--theme-600)'}).then(() => this.showSystemSettings());
+                        });
+                    } else {
+                        this.showSystemSettings();
+                    }
                 });
             },
 

@@ -1708,6 +1708,8 @@
                 apiCall('getAllStationsPersonnel').then(res => {
                     Swal.close();
                     if (res.status === 'error') { this.showError(res.message); return; }
+                    // Normalize stationId to String for reliable comparison
+                    if (res.stations) res.stations.forEach(s => s.stationId = String(s.stationId));
                     this._transferData = res;
                     this._transferPending = [];
                     this._renderTransferOverlay();
@@ -1724,7 +1726,7 @@
                 const subs = this._transferData.subdistricts || [];
                 let agencyOpts = '<option value="">ทุกหน่วยงาน</option>' + agencies.map(a => `<option value="${a}">${a}</option>`).join('');
                 let subOpts = '<option value="">ทุกแขวง</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
-                overlay.innerHTML = '<div class="transfer-header"><div class="flex items-center gap-3"><i class="fa-solid fa-people-arrows text-2xl"></i><div><h2 class="text-lg font-bold">ย้าย/สลับรายชื่อทั้งหน่วย</h2><p class="text-violet-200 text-xs">ลากการ์ดหน่วยหนึ่งไปวางบนอีกหน่วยเพื่อสลับรายชื่อทั้งหมด</p></div></div><button onclick="app._closeTransfer()" class="text-white/80 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button></div><div class="transfer-toolbar"><select id="tf-agency" class="transfer-select" onchange="app._filterTransfer()">' + agencyOpts + '</select><select id="tf-sub" class="transfer-select" onchange="app._filterTransfer()">' + subOpts + '</select><input id="tf-search" class="transfer-search" placeholder="🔍 ค้นหาหน่วย..." oninput="app._filterTransfer()"><div class="flex-1"></div><span id="tf-pending-badge" class="pending-badge hidden"><i class="fa-solid fa-arrows-rotate"></i> <span id="tf-pending-count">0</span> รายการรอบันทึก</span></div><div class="transfer-body" id="tf-body"></div><div class="transfer-footer"><button onclick="app._undoAllTransfer()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"><i class="fa-solid fa-rotate-left mr-1"></i> ย้อนกลับทั้งหมด</button><button onclick="app._saveTransfer()" id="tf-save-btn" class="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-bold transition-colors shadow disabled:opacity-50" disabled><i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกการเปลี่ยนแปลง</button></div>';
+                overlay.innerHTML = '<div class="transfer-header"><div class="flex items-center gap-3"><i class="fa-solid fa-people-arrows text-2xl"></i><div><h2 class="text-lg font-bold">ย้าย/สลับรายชื่อทั้งหน่วย</h2><p class="text-violet-200 text-xs">ลากการ์ดหน่วยหนึ่งไปวางบนอีกหน่วยเพื่อสลับรายชื่อทั้งหมด</p></div></div><button onclick="app._closeTransfer()" class="text-white/80 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button></div><div class="transfer-toolbar"><select id="tf-agency" class="transfer-select" onchange="app._filterTransfer()">' + agencyOpts + '</select><select id="tf-sub" class="transfer-select" onchange="app._filterTransfer()">' + subOpts + '</select><input id="tf-search" class="transfer-search" placeholder="🔍 ค้นหาหน่วย..." oninput="app._filterTransfer()"><div class="flex-1"></div></div><div class="transfer-body" id="tf-body"></div><div class="transfer-footer"><button onclick="app._undoAllTransfer()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"><i class="fa-solid fa-rotate-left mr-1"></i> รีเฟรชข้อมูล</button></div>';
                 document.body.appendChild(overlay);
                 document.body.style.overflow = 'hidden';
                 this._filterTransfer();
@@ -1733,7 +1735,7 @@
             _closeTransfer() {
                 const o = document.getElementById('transfer-overlay');
                 if (this._transferPending.length > 0) {
-                    Swal.fire({ title: 'มีรายการยังไม่บันทึก', text: 'ต้องการออกโดยไม่บันทึก?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'กลับไปแก้ไข', confirmButtonColor: '#d33' }).then(r => {
+                    Swal.fire({ title: 'กำลังออก', text: 'ยืนยันการออกจากหน้านี้?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#d33' }).then(r => {
                         if (r.isConfirmed) { if (o) o.remove(); document.body.style.overflow = ''; }
                     });
                 } else { if (o) o.remove(); document.body.style.overflow = ''; }
@@ -1772,18 +1774,18 @@
 
             _dragSourceId: null,
             _chipDragData: null,
-            _onDragStart(e) { if (this._chipDragData) return; const c = e.target.closest('.station-card'); if (!c) return; this._dragSourceId = c.dataset.sid; c.style.opacity = '0.5'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.sid); },
-            _onDragEnd(e) { const c = e.target.closest('.station-card'); if (c) c.style.opacity = '1'; document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); this._dragSourceId = null; },
+            _onDragStart(e) { this._chipDragData = null; const c = e.target.closest('.station-card'); if (!c) return; this._dragSourceId = c.dataset.sid; c.style.opacity = '0.5'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.sid); },
+            _onDragEnd(e) { const c = e.target.closest('.station-card'); if (c) c.style.opacity = '1'; document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); setTimeout(() => { this._dragSourceId = null; }, 100); },
             _onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const c = e.target.closest('.station-card'); if (c && c.dataset.sid !== this._dragSourceId) c.querySelector('.station-card-body')?.classList.add('drag-over'); },
             _onDragLeave(e) { const c = e.target.closest('.station-card'); if (c) c.querySelector('.station-card-body')?.classList.remove('drag-over'); },
-            _onDrop(e) { e.preventDefault(); if (this._chipDragData) return; const tc = e.target.closest('.station-card'); if (!tc) return; const fid = e.dataTransfer.getData('text/plain'); const tid = tc.dataset.sid; if (!fid || !tid || fid === tid) return; tc.querySelector('.station-card-body')?.classList.remove('drag-over'); this._confirmSwap(fid, tid); },
+            _onDrop(e) { e.preventDefault(); const tc = e.target.closest('.station-card'); if (!tc) return; tc.querySelector('.station-card-body')?.classList.remove('drag-over'); if (this._chipDragData) { Swal.fire({ icon: 'error', title: 'ไม่สามารถทำได้', text: 'ไม่สามารถย้ายรายบุคคลข้ามหน่วยได้ หากต้องการย้ายรายชื่อระหว่างหน่วย กรุณาลากการ์ดหน่วยเลือกตั้ง (ลากทั้งการ์ด)', confirmButtonColor: '#7c3aed' }); this._chipDragData = null; return; } let fid = e.dataTransfer.getData('text/plain'); if (!fid || fid === 'chip' || fid === 'null') fid = this._dragSourceId; const tid = tc.dataset.sid; if (!fid || !tid || fid === tid) return; this._confirmSwap(fid, tid); },
 
             // Chip-level drag (intra-station role swap)
             _onChipDragStart(e) { e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; this._chipDragData = { sid: chip.dataset.sid, rid: chip.dataset.rid }; chip.style.opacity = '0.4'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'chip'); },
-            _onChipDragEnd(e) { e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) chip.style.opacity = '1'; document.querySelectorAll('.person-chip.chip-drag-over').forEach(el => el.classList.remove('chip-drag-over')); this._chipDragData = null; },
-            _onChipDragOver(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip && chip.dataset.rid !== this._chipDragData.rid && chip.dataset.sid === this._chipDragData.sid) chip.classList.add('chip-drag-over'); },
-            _onChipDragLeave(e) { if (!this._chipDragData) return; e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) chip.classList.remove('chip-drag-over'); },
-            _onChipDrop(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; chip.classList.remove('chip-drag-over'); const fromRid = this._chipDragData.rid; const toRid = chip.dataset.rid; const sid = this._chipDragData.sid; if (fromRid === toRid || sid !== chip.dataset.sid) return; this._confirmChipSwap(sid, fromRid, toRid); },
+            _onChipDragEnd(e) { e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) chip.style.opacity = '1'; document.querySelectorAll('.person-chip.chip-drag-over').forEach(el => el.classList.remove('chip-drag-over')); document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); setTimeout(() => { this._chipDragData = null; }, 100); },
+            _onChipDragOver(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; if (chip.dataset.sid === this._chipDragData.sid && chip.dataset.rid !== this._chipDragData.rid) { chip.classList.add('chip-drag-over'); } else if (chip.dataset.sid !== this._chipDragData.sid) { const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.add('drag-over'); } },
+            _onChipDragLeave(e) { if (!this._chipDragData) return; e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) { chip.classList.remove('chip-drag-over'); const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.remove('drag-over'); } },
+            _onChipDrop(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; chip.classList.remove('chip-drag-over'); const fromSid = this._chipDragData.sid; const fromRid = this._chipDragData.rid; const toSid = chip.dataset.sid; const toRid = chip.dataset.rid; if (fromSid === toSid) { if (fromRid !== toRid) this._confirmChipSwap(fromSid, fromRid, toRid); } else { Swal.fire({ icon: 'error', title: 'ไม่สามารถทำได้', text: 'ไม่สามารถย้ายรายบุคคลข้ามหน่วยได้ หากต้องการย้ายรายชื่อระหว่างหน่วย กรุณาลากการ์ดหน่วยเลือกตั้ง (ลากทั้งการ์ด)', confirmButtonColor: '#7c3aed' }); } },
 
             _confirmSwap(fromId, toId) {
                 const stations = this._transferData.stations;
@@ -1794,16 +1796,53 @@
                 const fromLabel = 'หน่วยที่ ' + fromSt.stationNumber + ' (' + fromSt.subDistrict + ')';
                 const toLabel = 'หน่วยที่ ' + toSt.stationNumber + ' (' + toSt.subDistrict + ')';
                 Swal.fire({
-                    title: '<i class="fa-solid fa-people-arrows text-violet-600 mr-2"></i>ยืนยันการสลับ',
-                    html: '<div class="text-left text-sm"><div class="grid grid-cols-2 gap-4"><div class="bg-violet-50 p-3 rounded-lg border"><p class="font-bold text-violet-800 mb-1">' + fromLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(fromSt) + '</ul></div><div class="bg-indigo-50 p-3 rounded-lg border"><p class="font-bold text-indigo-800 mb-1">' + toLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(toSt) + '</ul></div></div><p class="mt-3 text-center text-gray-600"><i class="fa-solid fa-arrows-rotate text-violet-600 mr-1"></i>รายชื่อทั้งหมด + ข้อมูลอาหารมุสลิม จะถูกสลับระหว่าง 2 หน่วยนี้</p></div>',
-                    width: '600px', showCancelButton: true, confirmButtonText: 'สลับรายชื่อ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#7c3aed',
+                    title: '<i class="fa-solid fa-people-arrows text-violet-600 mr-2"></i>ยืนยันการดำเนินการ',
+                    html: '<div class="text-left text-sm"><div class="grid grid-cols-2 gap-4"><div class="bg-violet-50 p-3 rounded-lg border"><p class="font-bold text-violet-800 mb-1">จาก ' + fromLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(fromSt) + '</ul></div><div class="bg-indigo-50 p-3 rounded-lg border"><p class="font-bold text-indigo-800 mb-1">ไปยัง ' + toLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(toSt) + '</ul></div></div><p class="mt-3 text-center text-gray-600"><i class="fa-solid fa-arrows-rotate text-violet-600 mr-1"></i>เลือกการดำเนินการระหว่าง 2 หน่วยนี้</p></div>',
+                    width: '600px', 
+                    showCancelButton: true, 
+                    showDenyButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-arrow-right-arrow-left"></i> สลับรายชื่อ', 
+                    denyButtonText: '<i class="fa-solid fa-arrow-right"></i> ย้ายไปทับ',
+                    cancelButtonText: 'ยกเลิก', 
+                    confirmButtonColor: '#7c3aed',
+                    denyButtonColor: '#2563eb'
                 }).then(r => {
-                    if (!r.isConfirmed) return;
-                    const fromP = JSON.parse(JSON.stringify(fromSt.personnel));
-                    const toP = JSON.parse(JSON.stringify(toSt.personnel));
-                    fromSt.personnel = toP; toSt.personnel = fromP;
-                    this._transferPending.push({ fromStationId: fromId, toStationId: toId, mode: 'swap' });
-                    this._updatePendingBadge(); this._filterTransfer();
+                    let mode = null;
+                    if (r.isConfirmed) mode = 'swap';
+                    else if (r.isDenied) mode = 'move';
+                    
+                    if (mode) {
+                        this.showLoading('กำลังบันทึกข้อมูล...');
+                        apiCall('transferPersonnel', { operations: [{ fromStationId: fromId, toStationId: toId, mode: mode }] }).then(res => {
+                            if (res.status === 'success') {
+                                // Optimistically update local data
+                                if (mode === 'swap') {
+                                    const fromP = JSON.parse(JSON.stringify(fromSt.personnel));
+                                    const toP = JSON.parse(JSON.stringify(toSt.personnel));
+                                    fromSt.personnel = toP; toSt.personnel = fromP;
+                                } else if (mode === 'move') {
+                                    const fromP = JSON.parse(JSON.stringify(fromSt.personnel));
+                                    const emptyP = toSt.personnel.map(p => ({ ...p, firstName: '', lastName: '', prefix: '', idCard: '', phone: '' }));
+                                    toSt.personnel = fromP; fromSt.personnel = emptyP;
+                                }
+                                
+                                this._filterTransfer(); // Update UI immediately
+                                this.showSuccess(res.message);
+                                this.loadDashboardData(true);
+                                
+                                // Fetch in background to ensure strict sync
+                                apiCall('getAllStationsPersonnel').then(r2 => { 
+                                    if (r2.stations) { 
+                                        r2.stations.forEach(s => s.stationId = String(s.stationId)); 
+                                        this._transferData = r2; 
+                                        this._filterTransfer(); 
+                                    } 
+                                });
+                            } else {
+                                this.showError(res.message);
+                            }
+                        }).catch(e => this.showError(e.message));
+                    }
                 });
             },
 
@@ -1851,6 +1890,7 @@
                 apiCall('getAllStationsPersonnel').then(res => {
                     Swal.close();
                     if (res.status === 'error') { this.showError(res.message); return; }
+                    if (res.stations) res.stations.forEach(s => s.stationId = String(s.stationId));
                     this._transferData = res; this._transferPending = []; this._updatePendingBadge(); this._filterTransfer();
                 }).catch(e => this.showError(e.message));
             },
@@ -1863,7 +1903,7 @@
                     apiCall('transferPersonnel', { operations: this._transferPending }).then(res => {
                         if (res.status === 'success') {
                             this._transferPending = []; this._updatePendingBadge(); this.showSuccess(res.message); this.loadDashboardData(true);
-                            apiCall('getAllStationsPersonnel').then(r2 => { if (r2.stations) { this._transferData = r2; this._filterTransfer(); } });
+                            apiCall('getAllStationsPersonnel').then(r2 => { if (r2.stations) { r2.stations.forEach(s => s.stationId = String(s.stationId)); this._transferData = r2; this._filterTransfer(); } });
                         } else { this.showError(res.message); }
                     }).catch(e => this.showError(e.message));
                 });

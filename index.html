@@ -53,6 +53,29 @@
         
         /* Readonly Badge */
         .readonly-badge { background: #fee2e2; color: #991b1b; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: bold; border: 1px solid #fecaca; display: inline-flex; items-align: center; }
+
+        /* Transfer Modal Styles */
+        .transfer-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; display:flex; flex-direction:column; }
+        .transfer-header { background:linear-gradient(135deg,#5b21b6,#7c3aed); color:#fff; padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .transfer-toolbar { background:#f8fafc; padding:0.75rem 1.5rem; border-bottom:1px solid #e2e8f0; display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; flex-shrink:0; }
+        .transfer-body { flex:1; overflow-y:auto; padding:1.5rem; background:#f1f5f9; }
+        .transfer-footer { background:#fff; border-top:1px solid #e2e8f0; padding:0.75rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .transfer-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1rem; }
+        .station-card { background:#fff; border-radius:0.75rem; border:2px solid #e2e8f0; overflow:hidden; transition:all 0.2s; }
+        .station-card:hover { border-color:#a78bfa; box-shadow:0 4px 12px rgba(124,58,237,0.1); }
+        .station-card-header { background:linear-gradient(135deg,#f5f3ff,#ede9fe); padding:0.75rem 1rem; border-bottom:1px solid #e2e8f0; }
+        .station-card-body { padding:0.5rem; min-height:60px; }
+        .person-chip { display:flex; align-items:center; gap:0.5rem; padding:0.5rem 0.75rem; margin:0.25rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:0.5rem; cursor:grab; transition:all 0.2s; user-select:none; }
+        .person-chip:hover { background:#ede9fe; border-color:#a78bfa; }
+        .person-chip.dragging { opacity:0.4; transform:scale(0.95); }
+        .person-chip.empty-slot { background:#fafafa; border:1px dashed #d1d5db; cursor:default; color:#9ca3af; }
+        .station-card-body.drag-over { background:#ede9fe; border:2px dashed #7c3aed; border-radius:0.5rem; }
+        .person-chip .chip-drag-handle { color:#94a3b8; cursor:grab; }
+        .person-chip .chip-role { font-size:0.7rem; background:#7c3aed; color:#fff; padding:0.1rem 0.4rem; border-radius:9999px; white-space:nowrap; }
+        .person-chip .chip-name { font-size:0.85rem; font-weight:500; color:#334155; flex:1; }
+        .transfer-select { padding:0.4rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.5rem; font-size:0.875rem; background:#fff; }
+        .transfer-search { padding:0.4rem 0.75rem; border:1px solid #cbd5e1; border-radius:0.5rem; font-size:0.875rem; min-width:180px; }
+        .pending-badge { display:inline-flex; align-items:center; gap:0.25rem; background:#fef3c7; color:#92400e; font-size:0.75rem; font-weight:700; padding:0.25rem 0.75rem; border-radius:9999px; border:1px solid #fde68a; }
     </style>
 </head>
 <body class="antialiased">
@@ -75,6 +98,8 @@
                     <button id="restore-manage-btn" class="btn bg-teal-100 hover:bg-teal-200 text-teal-800 hidden"><i class="fa-solid fa-clock-rotate-left mr-1"></i> กู้คืนข้อมูล</button>
                     <!-- [NEW] ปุ่มเช็คลิสต์ กปน. -->
                     <button id="kpn-checklist-btn" class="btn bg-emerald-100 hover:bg-emerald-200 text-emerald-900 hidden"><i class="fa-solid fa-clipboard-list mr-1"></i> เช็คลิสต์ กปน.</button>
+                    <!-- [NEW] ปุ่มย้าย/สลับรายชื่อ -->
+                    <button id="transfer-btn" class="btn bg-violet-100 hover:bg-violet-200 text-violet-800 hidden"><i class="fa-solid fa-people-arrows mr-1"></i> ย้าย/สลับรายชื่อ</button>
                     
                     <button id="audit-log-btn" class="btn bg-amber-100 hover:bg-amber-200 text-amber-800 hidden"><i class="fa-solid fa-file-contract mr-1"></i> ประวัติการใช้งาน</button>
                     <button id="users-manage-btn" class="btn bg-blue-100 hover:bg-blue-200 text-blue-800 hidden"><i class="fa-solid fa-users-gear mr-1"></i> ผู้ใช้งาน</button>
@@ -312,6 +337,7 @@
             auditLogBtn: document.getElementById('audit-log-btn'),
             restoreManageBtn: document.getElementById('restore-manage-btn'), // [NEW] Restore Button
             kpnChecklistBtn: document.getElementById('kpn-checklist-btn'), // [NEW] KPN Checklist Button
+            transferBtn: document.getElementById('transfer-btn'), // [NEW] Transfer Button
             themeBtn: document.getElementById('theme-btn'),
             addRoleBtn: document.getElementById('add-role-btn'),
             viewToggleBtn: document.getElementById('view-toggle-btn'),
@@ -410,6 +436,7 @@
                 if (this.auditLogBtn) this.auditLogBtn.addEventListener('click', () => this.showAuditLogs());
                 if (this.restoreManageBtn) this.restoreManageBtn.addEventListener('click', () => this.showRestoreManagement()); // [NEW] Link Restore Btn
                 if (this.kpnChecklistBtn) this.kpnChecklistBtn.addEventListener('click', () => this.showKPNChecklist()); // [NEW] Link Checklist Btn
+                if (this.transferBtn) this.transferBtn.addEventListener('click', () => this.showTransferModal()); // [NEW] Link Transfer Btn
                 if (this.themeBtn) this.themeBtn.addEventListener('click', () => this.showSystemSettings());
                 this.addRoleBtn.addEventListener('click', () => this.handleAddNewRole());
                 
@@ -1060,6 +1087,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.remove('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Restore ให้ Admin
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Checklist ให้ Admin
+                    if (this.transferBtn) this.transferBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Transfer ให้ Admin
 
                     this.adminDashboard.classList.remove('hidden'); this.agencyDashboard.classList.add('hidden');
                     this.mainViewTitle.textContent = 'รายการหน่วยเลือกตั้งทั้งหมด';
@@ -1072,6 +1100,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.add('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Restore
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Checklist
+                    if (this.transferBtn) this.transferBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Transfer
 
                     this.adminDashboard.classList.add('hidden'); this.agencyDashboard.classList.remove('hidden');
                     this.mainViewTitle.textContent = 'รายการหน่วยเลือกตั้งในความรับผิดชอบ';
@@ -1666,6 +1695,139 @@
                 });
             },
             // ==========================================
+            // [NEW] TRANSFER / SWAP PERSONNEL FUNCTIONS
+            // ==========================================
+            _transferData: null,
+            _transferPending: [],
+
+            showTransferModal() {
+                this.showLoading('กำลังโหลดข้อมูลทุกหน่วย...');
+                apiCall('getAllStationsPersonnel').then(res => {
+                    Swal.close();
+                    if (res.status === 'error') { this.showError(res.message); return; }
+                    this._transferData = res;
+                    this._transferPending = [];
+                    this._renderTransferOverlay();
+                }).catch(e => this.showError(e.message));
+            },
+
+            _renderTransferOverlay() {
+                const existing = document.getElementById('transfer-overlay');
+                if (existing) existing.remove();
+                const overlay = document.createElement('div');
+                overlay.id = 'transfer-overlay';
+                overlay.className = 'transfer-overlay';
+                const agencies = this._transferData.agencies || [];
+                const subs = this._transferData.subdistricts || [];
+                let agencyOpts = '<option value="">ทุกหน่วยงาน</option>' + agencies.map(a => `<option value="${a}">${a}</option>`).join('');
+                let subOpts = '<option value="">ทุกแขวง</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+                overlay.innerHTML = '<div class="transfer-header"><div class="flex items-center gap-3"><i class="fa-solid fa-people-arrows text-2xl"></i><div><h2 class="text-lg font-bold">ย้าย/สลับรายชื่อทั้งหน่วย</h2><p class="text-violet-200 text-xs">ลากการ์ดหน่วยหนึ่งไปวางบนอีกหน่วยเพื่อสลับรายชื่อทั้งหมด</p></div></div><button onclick="app._closeTransfer()" class="text-white/80 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button></div><div class="transfer-toolbar"><select id="tf-agency" class="transfer-select" onchange="app._filterTransfer()">' + agencyOpts + '</select><select id="tf-sub" class="transfer-select" onchange="app._filterTransfer()">' + subOpts + '</select><input id="tf-search" class="transfer-search" placeholder="🔍 ค้นหาหน่วย..." oninput="app._filterTransfer()"><div class="flex-1"></div><span id="tf-pending-badge" class="pending-badge hidden"><i class="fa-solid fa-arrows-rotate"></i> <span id="tf-pending-count">0</span> รายการรอบันทึก</span></div><div class="transfer-body" id="tf-body"></div><div class="transfer-footer"><button onclick="app._undoAllTransfer()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"><i class="fa-solid fa-rotate-left mr-1"></i> ย้อนกลับทั้งหมด</button><button onclick="app._saveTransfer()" id="tf-save-btn" class="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-bold transition-colors shadow disabled:opacity-50" disabled><i class="fa-solid fa-floppy-disk mr-1"></i> บันทึกการเปลี่ยนแปลง</button></div>';
+                document.body.appendChild(overlay);
+                document.body.style.overflow = 'hidden';
+                this._filterTransfer();
+            },
+
+            _closeTransfer() {
+                const o = document.getElementById('transfer-overlay');
+                if (this._transferPending.length > 0) {
+                    Swal.fire({ title: 'มีรายการยังไม่บันทึก', text: 'ต้องการออกโดยไม่บันทึก?', icon: 'warning', showCancelButton: true, confirmButtonText: 'ออก', cancelButtonText: 'กลับไปแก้ไข', confirmButtonColor: '#d33' }).then(r => {
+                        if (r.isConfirmed) { if (o) o.remove(); document.body.style.overflow = ''; }
+                    });
+                } else { if (o) o.remove(); document.body.style.overflow = ''; }
+            },
+
+            _filterTransfer() {
+                const agency = document.getElementById('tf-agency')?.value || '';
+                const sub = document.getElementById('tf-sub')?.value || '';
+                const search = (document.getElementById('tf-search')?.value || '').trim().toLowerCase();
+                const stations = this._transferData.stations || [];
+                const filtered = stations.filter(s => {
+                    if (agency && s.agency !== agency) return false;
+                    if (sub && s.subDistrict !== sub) return false;
+                    if (search && !`${s.stationNumber} ${s.subDistrict} ${s.agency} ${s.location}`.toLowerCase().includes(search)) return false;
+                    return true;
+                });
+                this._renderTransferCards(filtered);
+            },
+
+            _renderTransferCards(stations) {
+                const body = document.getElementById('tf-body');
+                if (!body) return;
+                if (stations.length === 0) { body.innerHTML = '<div class="text-center py-16 text-gray-400"><i class="fa-solid fa-search text-4xl mb-3"></i><p>ไม่พบหน่วยเลือกตั้ง</p></div>'; return; }
+                let html = '<div class="transfer-grid">';
+                stations.forEach(st => {
+                    const peopleHtml = st.personnel.map(p => {
+                        if (!p.firstName) return '<div class="person-chip empty-slot"><span class="chip-role">' + p.roleTitle + '</span><span class="chip-name">— ว่าง —</span></div>';
+                        return '<div class="person-chip"><span class="chip-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span><span class="chip-role">' + p.roleTitle + '</span><span class="chip-name">' + (p.prefix||'') + ' ' + p.firstName + ' ' + p.lastName + '</span></div>';
+                    }).join('');
+                    const subLabel = st.subDistrict.startsWith('แขวง') ? st.subDistrict : 'แขวง' + st.subDistrict;
+                    html += '<div class="station-card" draggable="true" data-sid="' + st.stationId + '" ondragstart="app._onDragStart(event)" ondragend="app._onDragEnd(event)" ondragover="app._onDragOver(event)" ondragleave="app._onDragLeave(event)" ondrop="app._onDrop(event)"><div class="station-card-header"><div class="flex justify-between items-center"><div><span class="text-xs text-gray-500 font-bold uppercase">หน่วยที่</span> <span class="text-xl font-bold text-violet-700">' + st.stationNumber + '</span></div><div class="text-right"><div class="text-xs text-gray-600 font-medium">' + subLabel + '</div><div class="text-xs text-gray-400 truncate max-w-[140px]">' + st.agency + '</div></div></div></div><div class="station-card-body" data-sid="' + st.stationId + '">' + peopleHtml + '</div></div>';
+                });
+                html += '</div>';
+                body.innerHTML = html;
+            },
+
+            _dragSourceId: null,
+            _onDragStart(e) { const c = e.target.closest('.station-card'); if (!c) return; this._dragSourceId = c.dataset.sid; c.style.opacity = '0.5'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.sid); },
+            _onDragEnd(e) { const c = e.target.closest('.station-card'); if (c) c.style.opacity = '1'; document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); this._dragSourceId = null; },
+            _onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const c = e.target.closest('.station-card'); if (c && c.dataset.sid !== this._dragSourceId) c.querySelector('.station-card-body')?.classList.add('drag-over'); },
+            _onDragLeave(e) { const c = e.target.closest('.station-card'); if (c) c.querySelector('.station-card-body')?.classList.remove('drag-over'); },
+            _onDrop(e) { e.preventDefault(); const tc = e.target.closest('.station-card'); if (!tc) return; const fid = e.dataTransfer.getData('text/plain'); const tid = tc.dataset.sid; if (!fid || !tid || fid === tid) return; tc.querySelector('.station-card-body')?.classList.remove('drag-over'); this._confirmSwap(fid, tid); },
+
+            _confirmSwap(fromId, toId) {
+                const stations = this._transferData.stations;
+                const fromSt = stations.find(s => s.stationId === fromId);
+                const toSt = stations.find(s => s.stationId === toId);
+                if (!fromSt || !toSt) return;
+                const mkList = (st) => { const items = st.personnel.filter(p => p.firstName).map(p => '<li>' + p.roleTitle + ': ' + (p.prefix||'') + ' ' + p.firstName + ' ' + p.lastName + '</li>').join(''); return items || '<li class="text-gray-400">ไม่มีรายชื่อ</li>'; };
+                const fromLabel = 'หน่วยที่ ' + fromSt.stationNumber + ' (' + fromSt.subDistrict + ')';
+                const toLabel = 'หน่วยที่ ' + toSt.stationNumber + ' (' + toSt.subDistrict + ')';
+                Swal.fire({
+                    title: '<i class="fa-solid fa-people-arrows text-violet-600 mr-2"></i>ยืนยันการสลับ',
+                    html: '<div class="text-left text-sm"><div class="grid grid-cols-2 gap-4"><div class="bg-violet-50 p-3 rounded-lg border"><p class="font-bold text-violet-800 mb-1">' + fromLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(fromSt) + '</ul></div><div class="bg-indigo-50 p-3 rounded-lg border"><p class="font-bold text-indigo-800 mb-1">' + toLabel + '</p><ul class="list-disc pl-4 space-y-0.5 text-gray-700">' + mkList(toSt) + '</ul></div></div><p class="mt-3 text-center text-gray-600"><i class="fa-solid fa-arrows-rotate text-violet-600 mr-1"></i>รายชื่อทั้งหมด + ข้อมูลอาหารมุสลิม จะถูกสลับระหว่าง 2 หน่วยนี้</p></div>',
+                    width: '600px', showCancelButton: true, confirmButtonText: 'สลับรายชื่อ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#7c3aed',
+                }).then(r => {
+                    if (!r.isConfirmed) return;
+                    const fromP = JSON.parse(JSON.stringify(fromSt.personnel));
+                    const toP = JSON.parse(JSON.stringify(toSt.personnel));
+                    fromSt.personnel = toP; toSt.personnel = fromP;
+                    this._transferPending.push({ fromStationId: fromId, toStationId: toId, mode: 'swap' });
+                    this._updatePendingBadge(); this._filterTransfer();
+                });
+            },
+
+            _updatePendingBadge() {
+                const badge = document.getElementById('tf-pending-badge');
+                const count = document.getElementById('tf-pending-count');
+                const saveBtn = document.getElementById('tf-save-btn');
+                if (this._transferPending.length > 0) { badge?.classList.remove('hidden'); if (count) count.textContent = this._transferPending.length; if (saveBtn) saveBtn.disabled = false; }
+                else { badge?.classList.add('hidden'); if (saveBtn) saveBtn.disabled = true; }
+            },
+
+            _undoAllTransfer() {
+                if (this._transferPending.length === 0) return;
+                this.showLoading('กำลังโหลดข้อมูลใหม่...');
+                apiCall('getAllStationsPersonnel').then(res => {
+                    Swal.close();
+                    if (res.status === 'error') { this.showError(res.message); return; }
+                    this._transferData = res; this._transferPending = []; this._updatePendingBadge(); this._filterTransfer();
+                }).catch(e => this.showError(e.message));
+            },
+
+            _saveTransfer() {
+                if (this._transferPending.length === 0) return;
+                Swal.fire({ title: 'ยืนยันบันทึก', html: '<p>จะดำเนินการ <b>' + this._transferPending.length + ' รายการ</b></p><p class="text-sm text-gray-500 mt-1">ระบบจะสำรองข้อมูลอัตโนมัติก่อนบันทึก</p>', icon: 'warning', showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#7c3aed' }).then(r => {
+                    if (!r.isConfirmed) return;
+                    this.showLoading('กำลังบันทึก...');
+                    apiCall('transferPersonnel', { operations: this._transferPending }).then(res => {
+                        if (res.status === 'success') {
+                            this._transferPending = []; this._updatePendingBadge(); this.showSuccess(res.message); this.loadDashboardData(true);
+                            apiCall('getAllStationsPersonnel').then(r2 => { if (r2.stations) { this._transferData = r2; this._filterTransfer(); } });
+                        } else { this.showError(res.message); }
+                    }).catch(e => this.showError(e.message));
+                });
+            },
+            // === END TRANSFER ===
 
             renderAgencyDashboard(s, name) {
                  if(!s) return;

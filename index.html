@@ -2014,14 +2014,14 @@
             _onDragEnd(e) { const c = e.target.closest('.station-card'); if (c) c.style.opacity = '1'; document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); setTimeout(() => { this._dragSourceId = null; }, 100); },
             _onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const c = e.target.closest('.station-card'); if (c && c.dataset.sid !== this._dragSourceId) c.querySelector('.station-card-body')?.classList.add('drag-over'); },
             _onDragLeave(e) { const c = e.target.closest('.station-card'); if (c) c.querySelector('.station-card-body')?.classList.remove('drag-over'); },
-            _onDrop(e) { e.preventDefault(); const tc = e.target.closest('.station-card'); if (!tc) return; tc.querySelector('.station-card-body')?.classList.remove('drag-over'); if (this._chipDragData) { Swal.fire({ icon: 'error', title: 'ไม่สามารถทำได้', text: 'ไม่สามารถย้ายรายบุคคลข้ามหน่วยได้ หากต้องการย้ายรายชื่อระหว่างหน่วย กรุณาลากการ์ดหน่วยเลือกตั้ง (ลากทั้งการ์ด)', confirmButtonColor: '#7c3aed' }); this._chipDragData = null; return; } let fid = e.dataTransfer.getData('text/plain'); if (!fid || fid === 'chip' || fid === 'null') fid = this._dragSourceId; const tid = tc.dataset.sid; if (!fid || !tid || fid === tid) return; this._confirmSwap(fid, tid); },
+            _onDrop(e) { e.preventDefault(); const tc = e.target.closest('.station-card'); if (!tc) return; tc.querySelector('.station-card-body')?.classList.remove('drag-over'); if (this._chipDragData) { this._chipDragData = null; return; } let fid = e.dataTransfer.getData('text/plain'); if (!fid || fid === 'chip' || fid === 'null') fid = this._dragSourceId; const tid = tc.dataset.sid; if (!fid || !tid || fid === tid) return; this._confirmSwap(fid, tid); },
 
             // Chip-level drag (intra-station role swap)
             _onChipDragStart(e) { e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; this._chipDragData = { sid: chip.dataset.sid, rid: chip.dataset.rid }; chip.style.opacity = '0.4'; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'chip'); },
             _onChipDragEnd(e) { e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) chip.style.opacity = '1'; document.querySelectorAll('.person-chip.chip-drag-over').forEach(el => el.classList.remove('chip-drag-over')); document.querySelectorAll('.station-card-body.drag-over').forEach(el => el.classList.remove('drag-over')); setTimeout(() => { this._chipDragData = null; }, 100); },
-            _onChipDragOver(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; if (chip.dataset.sid === this._chipDragData.sid && chip.dataset.rid !== this._chipDragData.rid) { chip.classList.add('chip-drag-over'); } else if (chip.dataset.sid !== this._chipDragData.sid) { const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.add('drag-over'); } },
+            _onChipDragOver(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; if (chip.dataset.sid === this._chipDragData.sid && chip.dataset.rid !== this._chipDragData.rid) { chip.classList.add('chip-drag-over'); } else if (chip.dataset.sid !== this._chipDragData.sid) { chip.classList.add('chip-drag-over'); const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.add('drag-over'); } },
             _onChipDragLeave(e) { if (!this._chipDragData) return; e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (chip) { chip.classList.remove('chip-drag-over'); const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.remove('drag-over'); } },
-            _onChipDrop(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; chip.classList.remove('chip-drag-over'); const fromSid = this._chipDragData.sid; const fromRid = this._chipDragData.rid; const toSid = chip.dataset.sid; const toRid = chip.dataset.rid; if (fromSid === toSid) { if (fromRid !== toRid) this._confirmChipSwap(fromSid, fromRid, toRid); } else { Swal.fire({ icon: 'error', title: 'ไม่สามารถทำได้', text: 'ไม่สามารถย้ายรายบุคคลข้ามหน่วยได้ หากต้องการย้ายรายชื่อระหว่างหน่วย กรุณาลากการ์ดหน่วยเลือกตั้ง (ลากทั้งการ์ด)', confirmButtonColor: '#7c3aed' }); } },
+            _onChipDrop(e) { if (!this._chipDragData) return; e.preventDefault(); e.stopPropagation(); const chip = e.target.closest('.person-chip'); if (!chip) return; chip.classList.remove('chip-drag-over'); const card = chip.closest('.station-card'); if (card) card.querySelector('.station-card-body')?.classList.remove('drag-over'); const fromSid = this._chipDragData.sid; const fromRid = this._chipDragData.rid; const toSid = chip.dataset.sid; const toRid = chip.dataset.rid; if (fromSid === toSid) { if (fromRid !== toRid) this._confirmChipSwap(fromSid, fromRid, toRid); } else { this._confirmChipSwapCrossStation(fromSid, fromRid, toSid, toRid); } },
 
             _confirmSwap(fromId, toId) {
                 const stations = this._transferData.stations;
@@ -2108,6 +2108,67 @@
                             this.showSuccess(res.message);
                             this._filterTransfer();
                         } else { this.showError(res.message); }
+                    }).catch(e => this.showError(e.message));
+                });
+            },
+
+            _confirmChipSwapCrossStation(fromStationId, fromRoleId, toStationId, toRoleId) {
+                const stations = this._transferData.stations;
+                const fromSt = stations.find(s => s.stationId === fromStationId);
+                const toSt = stations.find(s => s.stationId === toStationId);
+                if (!fromSt || !toSt) return;
+                const fromP = fromSt.personnel.find(p => p.roleId === fromRoleId);
+                const toP = toSt.personnel.find(p => p.roleId === toRoleId);
+                if (!fromP || !toP || !fromP.firstName) return;
+
+                const personName = (p) => p && p.firstName ? ((p.prefix || '') + ' ' + p.firstName + ' ' + p.lastName).replace(/\s+/g, ' ').trim() : '(ว่าง)';
+                const fromSub = fromSt.subDistrict && fromSt.subDistrict.startsWith('แขวง') ? fromSt.subDistrict : 'แขวง' + (fromSt.subDistrict || '');
+                const toSub = toSt.subDistrict && toSt.subDistrict.startsWith('แขวง') ? toSt.subDistrict : 'แขวง' + (toSt.subDistrict || '');
+                const fromLabel = 'หน่วยที่ ' + fromSt.stationNumber + ' ' + fromSub;
+                const toLabel = 'หน่วยที่ ' + toSt.stationNumber + ' ' + toSub;
+
+                Swal.fire({
+                    title: '<i class="fa-solid fa-user-arrow-right text-violet-600 mr-2"></i>ย้ายรายบุคคลข้ามหน่วย',
+                    html: '<div class="text-left text-sm"><div class="grid grid-cols-2 gap-4"><div class="bg-violet-50 p-3 rounded-lg border"><p class="font-bold text-violet-800 mb-1">จาก ' + fromLabel + '</p><div class="text-xs text-violet-600 font-bold">' + fromP.roleTitle + '</div><div class="font-semibold text-gray-800">' + personName(fromP) + '</div></div><div class="bg-indigo-50 p-3 rounded-lg border"><p class="font-bold text-indigo-800 mb-1">ไปยัง ' + toLabel + '</p><div class="text-xs text-indigo-600 font-bold">' + toP.roleTitle + '</div><div class="font-semibold text-gray-800">' + personName(toP) + '</div></div></div><p class="mt-3 text-center text-gray-600"><i class="fa-solid fa-circle-info text-violet-600 mr-1"></i>เลือกว่าจะสลับสองตำแหน่งนี้ หรือย้ายต้นทางไปทับตำแหน่งปลายทาง</p></div>',
+                    width: '620px',
+                    showCancelButton: true,
+                    showDenyButton: true,
+                    confirmButtonText: '<i class="fa-solid fa-arrow-right-arrow-left"></i> สลับรายชื่อ',
+                    denyButtonText: '<i class="fa-solid fa-arrow-right"></i> ย้ายไปทับ',
+                    cancelButtonText: 'ยกเลิก',
+                    confirmButtonColor: '#7c3aed',
+                    denyButtonColor: '#2563eb'
+                }).then(r => {
+                    let mode = null;
+                    if (r.isConfirmed) mode = 'swap';
+                    else if (r.isDenied) mode = 'move';
+                    if (!mode) return;
+
+                    this.showLoading('กำลังบันทึกข้อมูล...');
+                    apiCall('transferIndividualPersonnel', { fromStationId, fromRoleId, toStationId, toRoleId, mode }).then(res => {
+                        if (res.status === 'success') {
+                            const fields = ['prefix', 'firstName', 'lastName', 'idCard', 'phone'];
+                            const fromSnapshot = {};
+                            const toSnapshot = {};
+                            fields.forEach(f => { fromSnapshot[f] = fromP[f] || ''; toSnapshot[f] = toP[f] || ''; });
+                            if (mode === 'swap') {
+                                fields.forEach(f => { fromP[f] = toSnapshot[f]; toP[f] = fromSnapshot[f]; });
+                            } else {
+                                fields.forEach(f => { toP[f] = fromSnapshot[f]; fromP[f] = ''; });
+                            }
+                            this._filterTransfer();
+                            this.showSuccess(res.message);
+                            this.loadDashboardData(true);
+                            apiCall('getAllStationsPersonnel').then(r2 => {
+                                if (r2.stations) {
+                                    r2.stations.forEach(s => s.stationId = String(s.stationId));
+                                    this._transferData = r2;
+                                    this._filterTransfer();
+                                }
+                            });
+                        } else {
+                            this.showError(res.message);
+                        }
                     }).catch(e => this.showError(e.message));
                 });
             },

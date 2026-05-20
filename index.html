@@ -101,6 +101,8 @@
                     <button id="restore-manage-btn" class="btn bg-teal-100 hover:bg-teal-200 text-teal-800 hidden"><i class="fa-solid fa-clock-rotate-left mr-1"></i> กู้คืนข้อมูล</button>
                     <!-- [NEW] ปุ่มเช็คลิสต์ กปน. -->
                     <button id="kpn-checklist-btn" class="btn bg-emerald-100 hover:bg-emerald-200 text-emerald-900 hidden"><i class="fa-solid fa-clipboard-list mr-1"></i> เช็คลิสต์ กปน.</button>
+                    <!-- [NEW] ปุ่มรายงานอาหารมุสลิม -->
+                    <button id="muslim-food-report-btn" class="btn bg-pink-100 hover:bg-pink-200 text-pink-900 hidden"><i class="fa-solid fa-utensils mr-1"></i> รายงานอาหารมุสลิม</button>
                     <!-- [NEW] ปุ่มย้าย/สลับรายชื่อ -->
                     <button id="transfer-btn" class="btn bg-violet-100 hover:bg-violet-200 text-violet-800 hidden"><i class="fa-solid fa-people-arrows mr-1"></i> ย้าย/สลับรายชื่อ</button>
                     
@@ -340,6 +342,7 @@
             auditLogBtn: document.getElementById('audit-log-btn'),
             restoreManageBtn: document.getElementById('restore-manage-btn'), // [NEW] Restore Button
             kpnChecklistBtn: document.getElementById('kpn-checklist-btn'), // [NEW] KPN Checklist Button
+            muslimFoodReportBtn: document.getElementById('muslim-food-report-btn'), // [NEW] Muslim Food Report Button
             transferBtn: document.getElementById('transfer-btn'), // [NEW] Transfer Button
             themeBtn: document.getElementById('theme-btn'),
             addRoleBtn: document.getElementById('add-role-btn'),
@@ -439,6 +442,7 @@
                 if (this.auditLogBtn) this.auditLogBtn.addEventListener('click', () => this.showAuditLogs());
                 if (this.restoreManageBtn) this.restoreManageBtn.addEventListener('click', () => this.showRestoreManagement()); // [NEW] Link Restore Btn
                 if (this.kpnChecklistBtn) this.kpnChecklistBtn.addEventListener('click', () => this.showKPNChecklist()); // [NEW] Link Checklist Btn
+                if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.addEventListener('click', () => this.showMuslimFoodReport()); // [NEW] Link Muslim Food Report
                 if (this.transferBtn) this.transferBtn.addEventListener('click', () => this.showTransferModal()); // [NEW] Link Transfer Btn
                 if (this.themeBtn) this.themeBtn.addEventListener('click', () => this.showSystemSettings());
                 this.addRoleBtn.addEventListener('click', () => this.handleAddNewRole());
@@ -1090,6 +1094,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.remove('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Restore ให้ Admin
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Checklist ให้ Admin
+                    if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.classList.remove('hidden'); // [NEW] แสดงปุ่มรายงานอาหารมุสลิม
                     if (this.transferBtn) this.transferBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Transfer ให้ Admin
 
                     this.adminDashboard.classList.remove('hidden'); this.agencyDashboard.classList.add('hidden');
@@ -1103,6 +1108,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.add('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Restore
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Checklist
+                    if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่มรายงานอาหารมุสลิม
                     if (this.transferBtn) this.transferBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Transfer
 
                     this.adminDashboard.classList.add('hidden'); this.agencyDashboard.classList.remove('hidden');
@@ -1388,6 +1394,236 @@
                  });
                  html += '</div>';
                  this.adminDashboardContent.innerHTML = html;
+            },
+
+            // ==========================================
+            // [NEW] MUSLIM FOOD REPORT FUNCTION
+            // ==========================================
+            showMuslimFoodReport() {
+                if (!this.currentStationsData || this.currentStationsData.length === 0) {
+                    Swal.fire('ไม่มีข้อมูล', 'ไม่พบข้อมูลหน่วยเลือกตั้งในระบบ', 'info');
+                    return;
+                }
+                
+                let muslimStations = this.currentStationsData.filter(st => {
+                    const isMuslim = String(st.IsMuslimFood).toUpperCase() === 'TRUE';
+                    const count = parseInt(st.MuslimCount1) || 0;
+                    return isMuslim && count > 0;
+                });
+                
+                // Sort by SubDistrict then StationNumber naturally
+                muslimStations.sort((a, b) => {
+                    if (a.SubDistrict !== b.SubDistrict) return String(a.SubDistrict).localeCompare(String(b.SubDistrict), 'th');
+                    return String(a.StationNumber).localeCompare(String(b.StationNumber), undefined, {numeric: true});
+                });
+
+                let totalCount = 0;
+                let tableHtml = `
+                    <div class="overflow-x-auto max-h-[60vh]">
+                        <table class="w-full text-sm text-left border border-gray-200">
+                            <thead class="text-xs text-gray-700 bg-green-100 sticky top-0 z-10 shadow-sm border-b border-green-200">
+                                <tr>
+                                    <th class="px-4 py-3 border-r border-green-200 text-center w-20">หน่วยที่</th>
+                                    <th class="px-4 py-3 border-r border-green-200 text-center w-32">แขวง</th>
+                                    <th class="px-4 py-3 border-r border-green-200 text-center">สถานที่เลือกตั้ง</th>
+                                    <th class="px-4 py-3 text-center w-40">ต้องการอาหารมุสลิม</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                if (muslimStations.length === 0) {
+                    tableHtml += `<tr><td colspan="4" class="text-center py-6 text-gray-500 bg-white">ไม่มีหน่วยที่ต้องการอาหารมุสลิม</td></tr>`;
+                } else {
+                    muslimStations.forEach(st => {
+                        const count = parseInt(st.MuslimCount1) || 0;
+                        totalCount += count;
+                        tableHtml += `
+                            <tr class="bg-white border-b hover:bg-gray-50">
+                                <td class="px-4 py-2 border-r border-gray-200 text-center font-medium">${st.StationNumber}</td>
+                                <td class="px-4 py-2 border-r border-gray-200">${st.SubDistrict}</td>
+                                <td class="px-4 py-2 border-r border-gray-200">${st.Location}</td>
+                                <td class="px-4 py-2 text-center text-red-600 font-bold">${count}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                tableHtml += `
+                            <tr class="bg-gray-50 border-t-2 border-gray-300 font-bold">
+                                <td colspan="3" class="px-4 py-3 border-r border-gray-200 text-right">รวม</td>
+                                <td class="px-4 py-3 text-center text-red-700 text-lg">${totalCount}</td>
+                            </tr>
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                        <button onclick="app.copyMuslimFoodLine()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-colors shadow flex-1 justify-center min-w-[140px]"><i class="fa-brands fa-line"></i> คัดลอกลงกลุ่มไลน์</button>
+                        <button onclick="app.exportMuslimFoodExcel()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow flex-1 justify-center min-w-[140px]"><i class="fa-solid fa-file-excel"></i> Export (CSV)</button>
+                        <button onclick="app.printMuslimFoodReport()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white text-sm font-bold transition-colors shadow flex-1 justify-center min-w-[140px]"><i class="fa-solid fa-print"></i> พิมพ์ / PDF</button>
+                    </div>
+                `;
+
+                Swal.fire({
+                    title: '<i class="fa-solid fa-utensils mr-2 text-pink-600"></i> รายงานจำนวนหน่วยที่ต้องการอาหารมุสลิม',
+                    html: tableHtml,
+                    width: '800px',
+                    showConfirmButton: true,
+                    confirmButtonText: 'ปิด',
+                    confirmButtonColor: 'var(--theme-600)',
+                    showCloseButton: true
+                });
+            },
+
+            printMuslimFoodReport() {
+                if (!this.currentStationsData) return;
+                let muslimStations = this.currentStationsData.filter(st => String(st.IsMuslimFood).toUpperCase() === 'TRUE' && (parseInt(st.MuslimCount1) || 0) > 0);
+                muslimStations.sort((a, b) => {
+                    if (a.SubDistrict !== b.SubDistrict) return String(a.SubDistrict).localeCompare(String(b.SubDistrict), 'th');
+                    return String(a.StationNumber).localeCompare(String(b.StationNumber), undefined, {numeric: true});
+                });
+
+                let totalCount = 0;
+                let now = new Date();
+                let dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+                let timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                
+                let printWin = window.open('', '', 'width=800,height=600');
+                if (!printWin) { Swal.fire('ข้อผิดพลาด', 'กรุณาอนุญาต Pop-up เพื่อพิมพ์รายงาน', 'error'); return; }
+                
+                let html = `
+                <html><head><title>รายงานอาหารมุสลิม</title>
+                <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+                <style>
+                    body { font-family: 'Kanit', sans-serif; padding: 20px; color: #333; }
+                    h2 { text-align: center; margin-bottom: 5px; }
+                    .subtitle { text-align: center; font-size: 14px; color: #666; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+                    th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+                    th { background-color: #f3f4f6; text-align: center; font-weight: bold; }
+                    td.center { text-align: center; }
+                    td.right { text-align: right; }
+                    tr.total td { font-weight: bold; background-color: #f9fafb; }
+                    @media print {
+                        body { padding: 0; }
+                        button { display: none; }
+                    }
+                </style>
+                </head><body>
+                <h2>รายงานจำนวนหน่วยที่ต้องการอาหารมุสลิม</h2>
+                <div class="subtitle">ข้อมูล ณ วันที่ ${dateStr} เวลา ${timeStr} น.</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 15%">หน่วยที่</th>
+                            <th style="width: 25%">แขวง</th>
+                            <th style="width: 40%">สถานที่เลือกตั้ง</th>
+                            <th style="width: 20%">ต้องการ (คน)</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                if (muslimStations.length === 0) {
+                    html += `<tr><td colspan="4" class="center">ไม่มีหน่วยที่ต้องการอาหารมุสลิม</td></tr>`;
+                } else {
+                    muslimStations.forEach(st => {
+                        const count = parseInt(st.MuslimCount1) || 0;
+                        totalCount += count;
+                        html += `
+                        <tr>
+                            <td class="center">${st.StationNumber}</td>
+                            <td>${st.SubDistrict}</td>
+                            <td>${st.Location}</td>
+                            <td class="center">${count}</td>
+                        </tr>`;
+                    });
+                }
+                
+                html += `
+                    <tr class="total">
+                        <td colspan="3" class="right">รวมทั้งหมด</td>
+                        <td class="center">${totalCount}</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">พิมพ์รายงาน</button>
+                </div>
+                </body></html>`;
+
+                printWin.document.open();
+                printWin.document.write(html);
+                printWin.document.close();
+                
+                // Allow styles to load before printing automatically
+                setTimeout(() => {
+                    printWin.focus();
+                    printWin.print();
+                }, 500);
+            },
+
+            copyMuslimFoodLine() {
+                if (!this.currentStationsData) return;
+                let muslimStations = this.currentStationsData.filter(st => String(st.IsMuslimFood).toUpperCase() === 'TRUE' && (parseInt(st.MuslimCount1) || 0) > 0);
+                muslimStations.sort((a, b) => {
+                    if (a.SubDistrict !== b.SubDistrict) return String(a.SubDistrict).localeCompare(String(b.SubDistrict), 'th');
+                    return String(a.StationNumber).localeCompare(String(b.StationNumber), undefined, {numeric: true});
+                });
+                
+                let now = new Date();
+                let dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                let timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                
+                let msg = `🍽️ รายงานจำนวนผู้ต้องการอาหารมุสลิม\nอัปเดต: ${dateStr} ${timeStr} น.\n\n`;
+                let totalCount = 0;
+                
+                if (muslimStations.length === 0) {
+                    msg += `(ไม่มีหน่วยที่ต้องการอาหารมุสลิม)\n`;
+                } else {
+                    muslimStations.forEach(st => {
+                        const count = parseInt(st.MuslimCount1) || 0;
+                        totalCount += count;
+                        msg += `- หน่วย ${st.StationNumber} แขวง${st.SubDistrict}: ${count} คน\n`;
+                    });
+                }
+                msg += `\nรวมทั้งหมด: ${totalCount} คน`;
+
+                navigator.clipboard.writeText(msg).then(() => {
+                    const btn = document.querySelector('button[onclick="app.copyMuslimFoodLine()"]');
+                    if(btn) { const orig = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว'; setTimeout(() => btn.innerHTML = orig, 2000); }
+                }).catch(() => {
+                    Swal.fire({ icon: 'error', title: 'คัดลอกไม่สำเร็จ', text: 'เบราว์เซอร์ไม่อนุญาต หรือเกิดข้อผิดพลาด' });
+                });
+            },
+
+            exportMuslimFoodExcel() {
+                if (!this.currentStationsData) return;
+                let muslimStations = this.currentStationsData.filter(st => String(st.IsMuslimFood).toUpperCase() === 'TRUE' && (parseInt(st.MuslimCount1) || 0) > 0);
+                muslimStations.sort((a, b) => {
+                    if (a.SubDistrict !== b.SubDistrict) return String(a.SubDistrict).localeCompare(String(b.SubDistrict), 'th');
+                    return String(a.StationNumber).localeCompare(String(b.StationNumber), undefined, {numeric: true});
+                });
+
+                let totalCount = 0;
+                let csvContent = "\uFEFFหน่วยที่,แขวง,สถานที่เลือกตั้ง,ต้องการอาหารมุสลิม (คน)\n"; // BOM for Thai Excel
+
+                muslimStations.forEach(st => {
+                    const count = parseInt(st.MuslimCount1) || 0;
+                    totalCount += count;
+                    let loc = String(st.Location).replace(/"/g, '""');
+                    if (loc.includes(',') || loc.includes('\n')) loc = `"${loc}"`;
+                    csvContent += `${st.StationNumber},${st.SubDistrict},${loc},${count}\n`;
+                });
+                csvContent += `,,รวมทั้งหมด,${totalCount}\n`;
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `รายงานอาหารมุสลิม_${new Date().getTime()}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             },
 
             // ==========================================

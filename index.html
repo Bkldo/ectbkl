@@ -1729,7 +1729,8 @@
                             stationNumber: st.StationNumber || '',
                             subDistrict: this.formatSubDistrictName(st.SubDistrict),
                             agency: st.Agency || '',
-                            missingRoles: missingRoles.join(', ')
+                            missingRoles: missingRoles.join(', '),
+                            missingCount: Array.isArray(st.missingRoles) ? st.missingRoles.length : ''
                         };
                     });
             },
@@ -1738,6 +1739,7 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
                 const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                const totalMissingCount = (rows || []).reduce((sum, row) => sum + (Number(row.missingCount) || 0), 0);
 
                 if (!rows || rows.length === 0) {
                     return `รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ\nวันที่ ${dateStr} เวลา ${timeStr} น.\n\nทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว`;
@@ -1746,10 +1748,11 @@
                 const lines = rows.map(row =>
                     `${row.no}. หน่วยที่ ${row.stationNumber} ${row.subDistrict}\n` +
                     `หน่วยงานรับผิดชอบ: ${row.agency || '-'}\n` +
-                    `ตำแหน่งที่ขาด/ยังไม่ครบ: ${row.missingRoles}`
+                    `ตำแหน่งที่ขาด/ยังไม่ครบ: ${row.missingRoles}\n` +
+                    `จำนวนที่ขาด/ยังไม่ครบ: ${row.missingCount || '-'} ตำแหน่ง`
                 ).join('\n\n');
 
-                return `รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ\nวันที่ ${dateStr} เวลา ${timeStr} น.\nจำนวน ${rows.length} หน่วย\n\n${lines}`;
+                return `รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ\nวันที่ ${dateStr} เวลา ${timeStr} น.\nจำนวน ${rows.length} หน่วย\nจำนวนที่ขาด/ยังไม่ครบทั้งหมด ${totalMissingCount} ตำแหน่ง\n\n${lines}`;
             },
 
             showIncompleteKPNReport() {
@@ -1760,11 +1763,12 @@
 
                 const rows = this.getIncompleteKPNRows();
                 const lineMessage = this.buildIncompleteKPNLineMessage(rows);
+                const totalMissingCount = rows.reduce((sum, row) => sum + (Number(row.missingCount) || 0), 0);
                 window._incompleteKpnReportRows = rows;
                 window._incompleteKpnLineMessage = lineMessage;
 
                 const tableRows = rows.length === 0
-                    ? `<tr><td colspan="5" class="px-4 py-8 text-center text-green-700 font-bold">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
+                    ? `<tr><td colspan="6" class="px-4 py-8 text-center text-green-700 font-bold">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
                     : rows.map(row => `
                         <tr class="border-b hover:bg-yellow-50">
                             <td class="px-4 py-3 text-center">${row.no}</td>
@@ -1772,7 +1776,13 @@
                             <td class="px-4 py-3">${this.escapeHtml(row.subDistrict)}</td>
                             <td class="px-4 py-3">${this.escapeHtml(row.agency || '-')}</td>
                             <td class="px-4 py-3 leading-relaxed">${this.escapeHtml(row.missingRoles)}</td>
+                            <td class="px-4 py-3 text-center font-bold text-yellow-800">${this.escapeHtml(row.missingCount || '-')}</td>
                         </tr>`).join('');
+                const summaryRow = `
+                    <tr class="bg-yellow-100 font-bold border-t-2 border-yellow-300">
+                        <td colspan="5" class="px-4 py-3 text-right">รวมจำนวนที่ขาด/ยังไม่ครบทั้งหมด</td>
+                        <td class="px-4 py-3 text-center text-yellow-900">${totalMissingCount}</td>
+                    </tr>`;
 
                 Swal.fire({
                     title: '<i class="fa-solid fa-file-circle-exclamation mr-2 text-yellow-700"></i><span class="text-gray-800">รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ</span>',
@@ -1795,12 +1805,13 @@
                                         <tr>
                                             <th class="px-4 py-3 text-center w-16">ลำดับ</th>
                                             <th class="px-4 py-3 text-center w-24">หน่วยที่</th>
-                                            <th class="px-4 py-3 min-w-[150px]">แขวง</th>
-                                            <th class="px-4 py-3 min-w-[220px]">หน่วยงานรับผิดชอบ</th>
+                                            <th class="px-4 py-3 w-32">แขวง</th>
+                                            <th class="px-4 py-3 w-48">หน่วยงานรับผิดชอบ</th>
                                             <th class="px-4 py-3 min-w-[320px]">ตำแหน่งที่ขาด/ยังไม่ครบ</th>
+                                            <th class="px-4 py-3 text-center w-36">จำนวนที่ขาด/ยังไม่ครบ</th>
                                         </tr>
                                     </thead>
-                                    <tbody>${tableRows}</tbody>
+                                    <tbody>${tableRows}${summaryRow}</tbody>
                                 </table>
                             </div>
                             <div>
@@ -1820,8 +1831,9 @@
                 const now = new Date();
                 const dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
                 const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                const totalMissingCount = rows.reduce((sum, row) => sum + (Number(row.missingCount) || 0), 0);
                 const bodyRows = rows.length === 0
-                    ? `<tr><td colspan="5" class="center">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
+                    ? `<tr><td colspan="6" class="center">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
                     : rows.map(row => `
                         <tr>
                             <td class="center">${row.no}</td>
@@ -1829,7 +1841,13 @@
                             <td>${this.escapeHtml(row.subDistrict)}</td>
                             <td>${this.escapeHtml(row.agency || '-')}</td>
                             <td>${this.escapeHtml(row.missingRoles)}</td>
+                            <td class="center">${this.escapeHtml(row.missingCount || '-')}</td>
                         </tr>`).join('');
+                const summaryRow = `
+                    <tr class="summary">
+                        <td colspan="5" class="right">รวมจำนวนที่ขาด/ยังไม่ครบทั้งหมด</td>
+                        <td class="center">${totalMissingCount}</td>
+                    </tr>`;
 
                 const printWin = window.open('', '_blank');
                 if (!printWin) {
@@ -1853,6 +1871,8 @@
                             th, td { border: 1px solid #9ca3af; padding: 8px 10px; vertical-align: top; line-height: 1.45; }
                             th { background: #e5e7eb; text-align: center; font-weight: 700; }
                             .center { text-align: center; }
+                            .right { text-align: right; }
+                            .summary td { background: #fef3c7; font-weight: 700; }
                             .actions { text-align: center; margin-top: 18px; }
                             .actions button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
                             @media print { .actions { display: none; } }
@@ -1866,12 +1886,13 @@
                                 <tr>
                                     <th style="width:54px;">ลำดับ</th>
                                     <th style="width:70px;">หน่วยที่</th>
-                                    <th style="width:130px;">แขวง</th>
-                                    <th style="width:210px;">หน่วยงานรับผิดชอบ</th>
+                                    <th style="width:96px;">แขวง</th>
+                                    <th style="width:155px;">หน่วยงานรับผิดชอบ</th>
                                     <th>ตำแหน่งที่ขาด/ยังไม่ครบ</th>
+                                    <th style="width:110px;">จำนวนที่ขาด/ยังไม่ครบ</th>
                                 </tr>
                             </thead>
-                            <tbody>${bodyRows}</tbody>
+                            <tbody>${bodyRows}${summaryRow}</tbody>
                         </table>
                         <div class="actions"><button onclick="window.print()">พิมพ์/บันทึก PDF</button></div>
                     </body>

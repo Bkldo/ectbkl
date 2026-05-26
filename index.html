@@ -127,6 +127,7 @@
                     <button id="restore-manage-btn" class="btn bg-teal-100 hover:bg-teal-200 text-teal-800 hidden"><i class="fa-solid fa-clock-rotate-left mr-1"></i> กู้คืนข้อมูล</button>
                     <!-- [NEW] ปุ่มเช็คลิสต์ กปน. -->
                     <button id="kpn-checklist-btn" class="btn bg-emerald-100 hover:bg-emerald-200 text-emerald-900 hidden"><i class="fa-solid fa-clipboard-list mr-1"></i> เช็คลิสต์ กปน.</button>
+                    <button id="incomplete-kpn-report-btn" class="btn bg-yellow-100 hover:bg-yellow-200 text-yellow-900 hidden"><i class="fa-solid fa-file-circle-exclamation mr-1"></i> รายงาน กปน. ยังไม่ครบ</button>
                     <!-- [NEW] ปุ่มรายงานอาหารมุสลิม -->
                     <button id="muslim-food-report-btn" class="btn bg-pink-100 hover:bg-pink-200 text-pink-900 hidden"><i class="fa-solid fa-utensils mr-1"></i> รายงานอาหารมุสลิม</button>
                     <!-- [NEW] ปุ่มย้าย/สลับรายชื่อ -->
@@ -371,6 +372,7 @@
             auditLogBtn: document.getElementById('audit-log-btn'),
             restoreManageBtn: document.getElementById('restore-manage-btn'), // [NEW] Restore Button
             kpnChecklistBtn: document.getElementById('kpn-checklist-btn'), // [NEW] KPN Checklist Button
+            incompleteKpnReportBtn: document.getElementById('incomplete-kpn-report-btn'),
             muslimFoodReportBtn: document.getElementById('muslim-food-report-btn'), // [NEW] Muslim Food Report Button
             transferBtn: document.getElementById('transfer-btn'), // [NEW] Transfer Button
             themeBtn: document.getElementById('theme-btn'),
@@ -475,6 +477,7 @@
                 if (this.auditLogBtn) this.auditLogBtn.addEventListener('click', () => this.showAuditLogs());
                 if (this.restoreManageBtn) this.restoreManageBtn.addEventListener('click', () => this.showRestoreManagement()); // [NEW] Link Restore Btn
                 if (this.kpnChecklistBtn) this.kpnChecklistBtn.addEventListener('click', () => this.showKPNChecklist()); // [NEW] Link Checklist Btn
+                if (this.incompleteKpnReportBtn) this.incompleteKpnReportBtn.addEventListener('click', () => this.showIncompleteKPNReport());
                 if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.addEventListener('click', () => this.showMuslimFoodReport()); // [NEW] Link Muslim Food Report
                 if (this.transferBtn) this.transferBtn.addEventListener('click', () => this.showTransferModal()); // [NEW] Link Transfer Btn
                 if (this.themeBtn) this.themeBtn.addEventListener('click', () => this.showSystemSettings());
@@ -1159,6 +1162,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.remove('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Restore ให้ Admin
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Checklist ให้ Admin
+                    if (this.incompleteKpnReportBtn) this.incompleteKpnReportBtn.classList.remove('hidden');
                     if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.classList.remove('hidden'); // [NEW] แสดงปุ่มรายงานอาหารมุสลิม
                     if (this.transferBtn) this.transferBtn.classList.remove('hidden'); // [NEW] แสดงปุ่ม Transfer ให้ Admin
 
@@ -1173,6 +1177,7 @@
                     if (this.rolesManageBtn) this.rolesManageBtn.classList.add('hidden');
                     if (this.restoreManageBtn) this.restoreManageBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Restore
                     if (this.kpnChecklistBtn) this.kpnChecklistBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Checklist
+                    if (this.incompleteKpnReportBtn) this.incompleteKpnReportBtn.classList.add('hidden');
                     if (this.muslimFoodReportBtn) this.muslimFoodReportBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่มรายงานอาหารมุสลิม
                     if (this.transferBtn) this.transferBtn.classList.add('hidden'); // [NEW] ซ่อนปุ่ม Transfer
 
@@ -1689,6 +1694,219 @@
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+            },
+
+            escapeHtml(value) {
+                return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[ch]));
+            },
+
+            formatSubDistrictName(subDistrict) {
+                const value = String(subDistrict || '').trim();
+                if (!value) return 'ไม่ระบุแขวง';
+                return value.startsWith('แขวง') ? value : `แขวง${value}`;
+            },
+
+            getIncompleteKPNRows() {
+                const stations = this.currentStationsData || [];
+                return stations
+                    .filter(st => {
+                        const missingRoles = Array.isArray(st.missingRoles) ? st.missingRoles : [];
+                        return (Number(st.progress) || 0) < 100 || missingRoles.length > 0;
+                    })
+                    .sort((a, b) => {
+                        const subCmp = String(a.SubDistrict || '').localeCompare(String(b.SubDistrict || ''), 'th');
+                        if (subCmp !== 0) return subCmp;
+                        return String(a.StationNumber || '').localeCompare(String(b.StationNumber || ''), 'th', { numeric: true });
+                    })
+                    .map((st, idx) => {
+                        const missingRoles = Array.isArray(st.missingRoles) && st.missingRoles.length > 0
+                            ? st.missingRoles
+                            : ['ยังไม่พบรายละเอียดตำแหน่งที่ขาด'];
+                        return {
+                            no: idx + 1,
+                            stationNumber: st.StationNumber || '',
+                            subDistrict: this.formatSubDistrictName(st.SubDistrict),
+                            agency: st.Agency || '',
+                            missingRoles: missingRoles.join(', ')
+                        };
+                    });
+            },
+
+            buildIncompleteKPNLineMessage(rows) {
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+                const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+                if (!rows || rows.length === 0) {
+                    return `รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ\nวันที่ ${dateStr} เวลา ${timeStr} น.\n\nทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว`;
+                }
+
+                const lines = rows.map(row =>
+                    `${row.no}. หน่วยที่ ${row.stationNumber} ${row.subDistrict}\n` +
+                    `หน่วยงานรับผิดชอบ: ${row.agency || '-'}\n` +
+                    `ตำแหน่งที่ขาด/ยังไม่ครบ: ${row.missingRoles}`
+                ).join('\n\n');
+
+                return `รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ\nวันที่ ${dateStr} เวลา ${timeStr} น.\nจำนวน ${rows.length} หน่วย\n\n${lines}`;
+            },
+
+            showIncompleteKPNReport() {
+                if (!this.currentStationsData || this.currentStationsData.length === 0) {
+                    Swal.fire('ไม่มีข้อมูล', 'ไม่พบข้อมูลหน่วยเลือกตั้งในระบบ', 'info');
+                    return;
+                }
+
+                const rows = this.getIncompleteKPNRows();
+                const lineMessage = this.buildIncompleteKPNLineMessage(rows);
+                window._incompleteKpnReportRows = rows;
+                window._incompleteKpnLineMessage = lineMessage;
+
+                const tableRows = rows.length === 0
+                    ? `<tr><td colspan="5" class="px-4 py-8 text-center text-green-700 font-bold">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
+                    : rows.map(row => `
+                        <tr class="border-b hover:bg-yellow-50">
+                            <td class="px-3 py-2 text-center">${row.no}</td>
+                            <td class="px-3 py-2 text-center font-bold">${this.escapeHtml(row.stationNumber)}</td>
+                            <td class="px-3 py-2">${this.escapeHtml(row.subDistrict)}</td>
+                            <td class="px-3 py-2">${this.escapeHtml(row.agency || '-')}</td>
+                            <td class="px-3 py-2">${this.escapeHtml(row.missingRoles)}</td>
+                        </tr>`).join('');
+
+                Swal.fire({
+                    title: '<i class="fa-solid fa-file-circle-exclamation mr-2 text-yellow-700"></i><span class="text-gray-800">รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ</span>',
+                    html: `
+                        <div class="text-left space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="text-sm text-gray-600">พบหน่วยที่ยังไม่ครบ <span class="font-bold text-yellow-700">${rows.length}</span> หน่วย</div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" onclick="app.printIncompleteKPNReport()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-sm font-bold transition-colors">
+                                        <i class="fa-solid fa-print"></i> พิมพ์/บันทึก PDF
+                                    </button>
+                                    <button type="button" id="copy-incomplete-kpn-btn" onclick="app.copyIncompleteKPNLineMessage()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-colors">
+                                        <i class="fa-solid fa-copy"></i> คัดลอกส่ง LINE
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto max-h-[46vh] rounded-xl border border-gray-200">
+                                <table class="w-full text-sm text-left">
+                                    <thead class="bg-gray-800 text-white sticky top-0 z-10">
+                                        <tr>
+                                            <th class="px-3 py-3 text-center w-16">ลำดับ</th>
+                                            <th class="px-3 py-3 text-center w-24">หน่วยที่</th>
+                                            <th class="px-3 py-3 min-w-[130px]">แขวง</th>
+                                            <th class="px-3 py-3 min-w-[190px]">หน่วยงานรับผิดชอบ</th>
+                                            <th class="px-3 py-3 min-w-[260px]">ตำแหน่งที่ขาด/ยังไม่ครบ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${tableRows}</tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 mb-1">ข้อความสำหรับส่ง LINE</label>
+                                <textarea id="incomplete-kpn-line-text" readonly class="w-full h-36 p-3 text-sm border border-gray-200 rounded-lg bg-gray-50 font-mono leading-relaxed">${this.escapeHtml(lineMessage)}</textarea>
+                            </div>
+                        </div>`,
+                    width: '1000px',
+                    showConfirmButton: false,
+                    showCloseButton: true,
+                    customClass: { popup: 'rounded-2xl' }
+                });
+            },
+
+            printIncompleteKPNReport() {
+                const rows = window._incompleteKpnReportRows || this.getIncompleteKPNRows();
+                const now = new Date();
+                const dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+                const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                const bodyRows = rows.length === 0
+                    ? `<tr><td colspan="5" class="center">ทุกหน่วยบันทึกข้อมูล กปน. ครบแล้ว</td></tr>`
+                    : rows.map(row => `
+                        <tr>
+                            <td class="center">${row.no}</td>
+                            <td class="center">${this.escapeHtml(row.stationNumber)}</td>
+                            <td>${this.escapeHtml(row.subDistrict)}</td>
+                            <td>${this.escapeHtml(row.agency || '-')}</td>
+                            <td>${this.escapeHtml(row.missingRoles)}</td>
+                        </tr>`).join('');
+
+                const printWin = window.open('', '_blank');
+                if (!printWin) {
+                    Swal.fire('เปิดหน้าพิมพ์ไม่ได้', 'กรุณาอนุญาต Popup แล้วลองใหม่อีกครั้ง', 'warning');
+                    return;
+                }
+
+                printWin.document.open();
+                printWin.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="th">
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ</title>
+                        <style>
+                            @page { size: A4 landscape; margin: 12mm; }
+                            body { font-family: "Sarabun", "TH Sarabun New", Arial, sans-serif; color: #111827; }
+                            h1 { font-size: 20px; text-align: center; margin: 0 0 6px; }
+                            .meta { text-align: center; font-size: 13px; margin-bottom: 14px; color: #4b5563; }
+                            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                            th, td { border: 1px solid #9ca3af; padding: 6px 8px; vertical-align: top; }
+                            th { background: #e5e7eb; text-align: center; font-weight: 700; }
+                            .center { text-align: center; }
+                            .actions { text-align: center; margin-top: 18px; }
+                            .actions button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+                            @media print { .actions { display: none; } }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>รายงานหน่วยที่ยังบันทึกข้อมูล กปน. ยังไม่ครบ</h1>
+                        <div class="meta">วันที่ ${dateStr} เวลา ${timeStr} น. | จำนวน ${rows.length} หน่วย</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width:54px;">ลำดับ</th>
+                                    <th style="width:70px;">หน่วยที่</th>
+                                    <th style="width:130px;">แขวง</th>
+                                    <th style="width:210px;">หน่วยงานรับผิดชอบ</th>
+                                    <th>ตำแหน่งที่ขาด/ยังไม่ครบ</th>
+                                </tr>
+                            </thead>
+                            <tbody>${bodyRows}</tbody>
+                        </table>
+                        <div class="actions"><button onclick="window.print()">พิมพ์/บันทึก PDF</button></div>
+                    </body>
+                    </html>`);
+                printWin.document.close();
+                setTimeout(() => {
+                    printWin.focus();
+                    printWin.print();
+                }, 500);
+            },
+
+            copyIncompleteKPNLineMessage() {
+                const msg = window._incompleteKpnLineMessage || this.buildIncompleteKPNLineMessage(this.getIncompleteKPNRows());
+                const btn = document.getElementById('copy-incomplete-kpn-btn');
+                const markCopied = () => {
+                    if (!btn) return;
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> คัดลอกแล้ว';
+                    setTimeout(() => { btn.innerHTML = original; }, 2000);
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(msg).then(markCopied).catch(() => this.copyTextFallback('incomplete-kpn-line-text', markCopied));
+                } else {
+                    this.copyTextFallback('incomplete-kpn-line-text', markCopied);
+                }
+            },
+
+            copyTextFallback(elementId, onSuccess) {
+                const el = document.getElementById(elementId);
+                if (!el) return;
+                el.focus();
+                el.select();
+                document.execCommand('copy');
+                if (typeof onSuccess === 'function') onSuccess();
             },
 
             // ==========================================

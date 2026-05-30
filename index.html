@@ -2665,6 +2665,7 @@
 
                  // รีเซ็ตการแจ้งเตือนเรื่องการล็อค รปภ.
                  document.querySelectorAll('.sec-lock-warning').forEach(el => el.remove());
+                 document.querySelectorAll('.station-sec-lock-warning').forEach(el => el.remove());
 
                  if (this.isReadOnly) {
                      allInputs.forEach(el => {
@@ -2784,12 +2785,40 @@
                         else { this.isMuslimFoodCheckbox.checked = false; this.toggleMuslimFoodDetails(false); }
                         
                         this.updatePersonnelSummary();
+                        this.applyStationSecurityLockToForm(data);
                     } else {
                          this.showErrorWithRetry('ไม่พบข้อมูล หรือการเชื่อมต่อล้มเหลว', () => this.loadStationDataForEdit(id));
                     }
                 }).catch(e => {
                     Swal.close();
                     this.showErrorWithRetry('เกิดข้อผิดพลาด: ' + e.message, () => this.loadStationDataForEdit(id));
+                });
+            },
+
+            applyStationSecurityLockToForm(data) {
+                const isStationSecurityLocked = String(data.SecurityGuardLocked).toUpperCase() === 'TRUE';
+                if (!isStationSecurityLocked || this.currentUser === 'Administrator' || !Array.isArray(this.personnelTabsConfig)) return;
+
+                this.personnelTabsConfig.forEach(tab => {
+                    const isSecRole = tab.title.includes('รักษาความปลอดภัย') || tab.title.includes('รปภ') || tab.title.toLowerCase().includes('security');
+                    if (!isSecRole) return;
+
+                    ['Prefix', 'FirstName', 'LastName', 'IDCard', 'Phone'].forEach(f => {
+                        const el = document.getElementById(`${tab.id}_${f}`);
+                        if (el) {
+                            el.readOnly = true;
+                            el.classList.remove('bg-white', 'text-gray-900');
+                            el.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-600');
+                        }
+                    });
+
+                    const pane = document.getElementById(`tab-pane-${tab.id}`);
+                    if (pane && !pane.querySelector('.station-sec-lock-warning')) {
+                        const warnDiv = document.createElement('div');
+                        warnDiv.className = 'station-sec-lock-warning mb-3 p-3 bg-red-50 text-red-800 text-sm rounded-lg border border-red-200 font-medium flex items-center shadow-sm';
+                        warnDiv.innerHTML = '<i class="fa-solid fa-lock mr-2 text-lg"></i> แอดมินล็อกการบันทึก รปภ. สำหรับหน่วยนี้ โรงเรียน/หน่วยงานไม่สามารถแก้ไขข้อมูลเจ้าหน้าที่รักษาความปลอดภัยได้';
+                        pane.insertBefore(warnDiv, pane.firstChild);
+                    }
                 });
             },
             

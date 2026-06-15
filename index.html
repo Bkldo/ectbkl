@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประกาศแจ้งปิดระบบ - สำนักงานเขตบางคอแหลม</title>
+    <style>
+        /* Reset & Base Styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        /* Card Container */
+        .card {
+            background-color: #ffffff;
+            max-width: 550px;
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            padding: 40px 30px;
+            text-align: center;
+            border: 1px solid #eaeaea;
+        }
+
+        /* Icon Badge */
+        .icon-badge {
+            width: 64px;
+            height: 64px;
+            background-color: #fff3cd;
+            color: #856404;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+        .icon-badge svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+
+        /* Notice Box */
+        .notice-box {
+            background-color: #f1f5f9;
+            border-left: 4px solid #0284c7;
+            border-radius: 4px;
+            padding: 20px;
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .notice-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+            font-size: 15px;
+        }
+        .notice-item {
+            font-size: 14px;
+            color: #334155;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .notice-item:last-child {
+            margin-bottom: 0;
+        }
+        .label {
+            font-weight: 500;
+            color: #64748b;
+        }
+        .value {
+            font-weight: 600;
+            color: #0f172a;
+            text-align: right;
+        }
+
+        /* Footer contact */
+        .contact-info {
+            font-size: 13px;
+            color: #94a3b8;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 20px;
+        }
+        .contact-info a {
+            color: #0284c7;
+            text-decoration: none;
+        }
+        .contact-info a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <!-- SVG Icon (โหลดเร็ว ไม่ต้องดึงรูปจากข้างนอก) -->
+        <div class="icon-badge">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            </svg>
+        </div>
+
+        <h1>ประกาศแจ้งปิดระบบ</h1>
+        <div class="subtitle">ระบบบันทึกข้อมูลกรรมการประจำหน่วยเลือกตั้ง<br>เขตบางคอแหลม</div>
+
+        <!-- รายละเอียดการปิดระบบ -->
+        <div class="notice-box">
+            <div class="notice-title">รายละเอียดการปรับปรุงระบบ:</div>
+            
+            <div class="notice-item">
+                <span class="label">สาเหตุ:</span>
+                <span class="value">ปิดรับข้อมูลและจัดทำคำสั่ง</span>
+            </div>
+            
+            <div class="notice-item">
+                <span class="label">เริ่มปิดระบบ:</span>
+                <span class="value">วันที่ 6 มิถุนายน 2569 เวลา 18:00 น.</span>
+            </div>
+            
+            <div class="notice-item">
+                <span class="label">คาดว่าจะเปิดใช้งาน:</span>
+                <span class="value">-</span>
+            </div>
+            
+            <div class="notice-item">
+                <span class="label">สถานะปัจจุบัน:</span>
+                <span class="value" style="color: #dc2626;">ระงับการเข้าใช้งานชั่วคราว</span>
+            </div>
+        </div>
+
+        <!-- ข้อมูลติดต่อสอบถาม -->
+        <div class="contact-info">
+            ขออภัยในความไม่สะดวก <br> 
+            หากมีข้อสงสัยหรือกรณีฉุกเฉิน กรุณาติดต่อ ฝ่ายปกครอง สำนักงานเขตบางคอแหลม <br>
+            โทรศัพท์: <a href="tel:022910281">0 2291 3800</a> ต่อ 5909
+        </div>
+    </div>
+
+</body>
+</html>
